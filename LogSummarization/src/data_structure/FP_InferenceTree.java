@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -30,7 +31,7 @@ import feature_management.FeatureVector;
  *
  */
 public class FP_InferenceTree {
-	private List<Word> curlist;// keep track of current order of sortablefeatures
+	private List<Word> curlist;// keep track of current order of words
 	private HashMap<Integer,HashMap<Integer,Word>> featureMap;//its own feature map, two keys featureID+occurrence
 	private HashMap<Word,HashSet<FPNode>> trackMap;//tracking the position of sortable features
 	private HashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceGEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i>=occurrence)
@@ -47,7 +48,7 @@ public class FP_InferenceTree {
 	private double NaiveEntropy=-1;
 	private double TrueEntropy=-1;
 	private int numOfLeaves=-1;
-	
+
 	//private PrintWriter dump;
 	private PrintWriter wr;
 	private BufferedReader readFromFirstRun;
@@ -139,7 +140,7 @@ public class FP_InferenceTree {
 	public void consume(FPPath P){
 		FPNode tail=P.getLast();
 		int tailCount=tail.getCount();
-		
+
 		//traverse this tree
 		FPNode start=null;//start is the node that last match happens
 		if (root.getChildren().isEmpty()){
@@ -156,7 +157,10 @@ public class FP_InferenceTree {
 			}
 			else{
 				//update the record for newly got instance
-				int oldCount=this.instanceMap.get(start);
+				Integer oldCount=this.instanceMap.get(start);
+				if (oldCount==null)
+					oldCount=0;
+
 				this.instanceMap.put(start,oldCount+tailCount);
 			}
 		}
@@ -285,15 +289,22 @@ public class FP_InferenceTree {
 		return true;
 	}
 
+	public boolean validateInstanceMap(){
+		int sum=0;
+		for (Integer count:this.instanceMap.values())
+			sum+=count;
+		return sum==this.count&& this.instanceMap.values().size()==this.distinctcount;
+	}
 
 	/**
 	 * validate if this tree is correct
 	 */
 	public void validateTree(){
-		//System.out.println("this tree's marginal&joint probabilities can be correctly computed?: "+this.validateProbabilityComputation());
-		//System.out.println("this tree's nodes are correctly built?: "+this.validateNodes(this.root));
-		//System.out.println("this tree's trackMap is correctly built?: "+this.validateTrackMap(this.root));
+		System.out.println("this tree's marginal&joint probabilities can be correctly computed?: "+this.validateProbabilityComputation());
+		System.out.println("this tree's nodes are correctly built?: "+this.validateNodes(this.root));
+		System.out.println("this tree's trackMap is correctly built?: "+this.validateTrackMap(this.root));
 		System.out.println("this tree has "+this.count+" number of feature sets");
+		System.out.println("this tree 's instanceMap is correctly built?: "+this.validateInstanceMap());
 		System.out.println("this tree has "+this.distinctcount+" number of feature sets disregarding duplicates");
 		System.out.println("this tree has "+this.getNumOfLeaves()+" number of leaf nodes.");
 		System.out.println("this tree has "+this.getNodeNumber(this.root)+" number of nodes in total");
@@ -315,6 +326,31 @@ public class FP_InferenceTree {
 			}
 		}
 		return num;
+	}
+
+	/**
+	 * a naive summary is simply a bag of patterns mapped with their marginals 
+	 * @return
+	 */
+	public LinkedHashMap<Word,Double> getNaiveSummary(){
+
+		LinkedHashMap<Word,Double> naiveSummary=new LinkedHashMap<Word,Double>();
+		for (Entry<Integer, TreeMap<Integer, Integer>> en: this.getFeatureDistribution().entrySet()) {
+			int featureID=en.getKey();
+			for (Entry<Integer, Integer> enn: en.getValue().entrySet()){
+				int occurrence=enn.getKey();
+				int frequency=enn.getValue();
+				if(occurrence!=0){
+					double marginal=(double)frequency/(double)this.count;
+					Word w=this.featureMap.get(featureID).get(occurrence);
+					if(w==null){
+						System.out.println("cannot find word for featureID "+featureID+" occurrence "+occurrence +". Please check.");
+					}
+					naiveSummary.put(w, marginal);
+				}
+			}
+		}
+		return naiveSummary;		
 	}
 
 	public int getNodeNumber(FPNode root){
@@ -392,7 +428,7 @@ public class FP_InferenceTree {
 		}
 		return this.curlist;
 	}
-	
+
 
 	/**
 	 * read from what's saved and build its tree
@@ -454,7 +490,7 @@ public class FP_InferenceTree {
 			System.out.println("empty feature vector consumed");
 		}		
 	}
-	
+
 
 	/**
 	 * turns a list of Feature with occurrences into a HashSet of Word

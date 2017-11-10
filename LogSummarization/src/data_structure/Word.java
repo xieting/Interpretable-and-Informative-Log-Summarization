@@ -22,7 +22,6 @@ public class Word implements Comparable<Word>, Serializable{
 	
 	private int featureID;
     private int totalContribution;
-    public int startcount=-1;
     private int occurrence;
     private int hashcode;
     
