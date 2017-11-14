@@ -34,8 +34,8 @@ public class FP_InferenceTree {
 	private List<Word> curlist;// keep track of current order of words
 	private HashMap<Integer,HashMap<Integer,Word>> featureMap;//its own feature map, two keys featureID+occurrence
 	private HashMap<Word,HashSet<FPNode>> trackMap;//tracking the position of sortable features
-	private HashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceGEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i>=occurrence)
-	private HashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i=occurrence)	
+	private LinkedHashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceGEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i>=occurrence)
+	private LinkedHashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i=occurrence)	
 	private HashMap<FPNode,Integer> instanceMap=new HashMap<FPNode,Integer>(); //store the tail Nodes of all multivariate observations
 	private FPNode root;//root of this tree, defined as null
 	private int count;//total number of feature sets parsed
@@ -859,13 +859,14 @@ public class FP_InferenceTree {
 	 * if occurrence=0, we do not store them
 	 * @return
 	 */
-	public HashMap<Integer,TreeMap<Integer,Integer>> getFeatureDistribution(){
+	public LinkedHashMap<Integer,TreeMap<Integer,Integer>> getFeatureDistribution(){
 
 		if(this.featureOccurrenceGEQMarginal==null){
-			this.featureOccurrenceGEQMarginal=new HashMap<Integer,TreeMap<Integer,Integer>>();
+			this.featureOccurrenceGEQMarginal=new LinkedHashMap<Integer,TreeMap<Integer,Integer>>();
 
-			HashMap<Word,Integer> frequencyCount=this.getFrequencyCount();
-
+			TreeMap<Word,Integer> frequencyCount=new TreeMap<Word,Integer>(this.getFrequencyCount());
+            
+			
 			for(Entry<Word, Integer> en: frequencyCount.entrySet()){
 				int ID=en.getKey().getFeatureID();
 				int occurrence=en.getKey().getOccurrence();
@@ -881,7 +882,7 @@ public class FP_InferenceTree {
 		}
 
 		if(this.featureOccurrenceEQMarginal==null){
-			this.featureOccurrenceEQMarginal=new HashMap<Integer,TreeMap<Integer,Integer>>(); 
+			this.featureOccurrenceEQMarginal=new LinkedHashMap<Integer,TreeMap<Integer,Integer>>(); 
 
 			//calculate featureEQDistribution
 			for (Entry<Integer, TreeMap<Integer, Integer>> en: this.featureOccurrenceGEQMarginal.entrySet()){
