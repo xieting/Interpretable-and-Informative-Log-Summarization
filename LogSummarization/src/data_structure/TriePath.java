@@ -11,22 +11,22 @@ import java.util.LinkedList;
  *
  */
 
-public class FPPath implements Comparable<FPPath>{	  
-	  private LinkedList<FPNode> list;
+public class TriePath implements Comparable<TriePath>{	  
+	  private LinkedList<TrieNode> list;
 	  
-      public FPPath(LinkedList<FPNode> list){
+      public TriePath(LinkedList<TrieNode> list){
     	  this.list=list;    
       }
       
-      public FPPath(FPNode n){
-    	  this.list=new LinkedList<FPNode>();
+      public TriePath(TrieNode n){
+    	  this.list=new LinkedList<TrieNode>();
     	  this.list.add(n);
       }
-      public FPPath(){
-    	  this.list=new LinkedList<FPNode>();
+      public TriePath(){
+    	  this.list=new LinkedList<TrieNode>();
       }
       
-      public void addToTail(FPNode node){
+      public void addToTail(TrieNode node){
     	  if (this.list.isEmpty()||node.getCount()==this.list.get(0).getCount())
     	  this.list.add(node);    	  
     	  else
@@ -34,7 +34,7 @@ public class FPPath implements Comparable<FPPath>{
     	  
       }
       
-      public void addAllToTail(FPPath path){
+      public void addAllToTail(TriePath path){
     	  this.list.addAll(path.list);
       }
       
@@ -46,7 +46,7 @@ public class FPPath implements Comparable<FPPath>{
     	  this.list.removeFirst();
       }
       
-      public void addToFirst(FPNode node){
+      public void addToFirst(TrieNode node){
     	  if (this.list.isEmpty()||node.getCount()==this.list.get(0).getCount())
     	  this.list.addFirst(node);    	  
     	  else
@@ -54,7 +54,7 @@ public class FPPath implements Comparable<FPPath>{
 
       }
       
-      public FPNode  getFirst(){
+      public TrieNode  getFirst(){
     	  return this.list.getFirst();
       }
       
@@ -62,18 +62,18 @@ public class FPPath implements Comparable<FPPath>{
        * retrive and remove the first element
        * @return
        */
-      public FPNode  pullFirst(){
+      public TrieNode  pullFirst(){
     	  return this.list.pollFirst();
       }
       
-      public FPNode  getLast(){
+      public TrieNode  getLast(){
     	  return this.list.getLast();
       }          
       
            
       public String getMyLabels(){
     	  String line="";
-    	  for (FPNode n: this.list)
+    	  for (TrieNode n: this.list)
     		  line+=" "+n.getWord().getFeatureID()+":"+n.getWord().getOccurrence()+":"+n.getCount();
 		return line;
       }
@@ -83,9 +83,9 @@ public class FPPath implements Comparable<FPPath>{
        */
       @Override
       public String toString(){
-    	  Iterator<FPNode> it=this.list.iterator();
+    	  Iterator<TrieNode> it=this.list.iterator();
     	  String line="";
-    	  FPNode node;
+    	  TrieNode node;
     	  
     	 while(it.hasNext()){
     		 node=it.next();
@@ -107,12 +107,12 @@ public class FPPath implements Comparable<FPPath>{
       public int getlength(){
     	  return this.list.size();
       }
-      public LinkedList<FPNode> getList(){
+      public LinkedList<TrieNode> getList(){
     	  return this.list;
       }
 
 	@Override
-	public int compareTo(FPPath arg0) {		
+	public int compareTo(TriePath arg0) {		
 		return Integer.compare(this.list.get(0).getCount(), arg0.getFirst().getCount());
 	}
 }

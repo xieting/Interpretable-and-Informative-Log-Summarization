@@ -1,21 +1,15 @@
 package data_structure;
 
 import java.io.BufferedReader;
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.file.DirectoryNotEmptyException;
-import java.nio.file.Files;
-import java.nio.file.NoSuchFileException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.Scanner;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
@@ -30,106 +24,130 @@ import feature_management.FeatureVector;
  * @author Ting Xie
  *
  */
-public class FP_InferenceTree {
-	private List<Word> curlist;// keep track of current order of words
-	private HashMap<Integer,HashMap<Integer,Word>> featureMap;//its own feature map, two keys featureID+occurrence
-	private HashMap<Word,HashSet<FPNode>> trackMap;//tracking the position of sortable features
+public class FeatureVector_Trie {
+	private HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> observedFeatureOccurrenceMap;//its own feature map, two keys featureID+occurrence
+	private HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> trackMap;//tracking the position of sortable features
 	private LinkedHashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceGEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i>=occurrence)
 	private LinkedHashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i=occurrence)	
-	private HashMap<FPNode,Integer> instanceMap=new HashMap<FPNode,Integer>(); //store the tail Nodes of all multivariate observations
-	private FPNode root;//root of this tree, defined as null
+	private HashMap<TrieNode,Integer> instanceMap=new HashMap<TrieNode,Integer>(); //store the tail Nodes of all multivariate observations
+	private TrieNode root;//root of this tree, defined as null
 	private int count;//total number of feature sets parsed
 	private int distinctcount; //number of feature sets parsed disregarding multiplicity
 	private int totalcount;//total number of features parsed
-	private String path;//just a path to temporarily store consumed features on disk
-	private String dumpPath;//just a path to visualize the content of the tree
 	private double entropyLower;
 	private double naiveSummaryError=-1;//KL divergence if KL(P|Q) where P--the actual distribution stored in the tree and Q--the naive distribution assuming independence	
 	private double NaiveEntropy=-1;
 	private double TrueEntropy=-1;
 	private int numOfLeaves=-1;
-
-	//private PrintWriter dump;
-	private PrintWriter wr;
-	private BufferedReader readFromFirstRun;
-	public FP_InferenceTree (String path,String dumppath){
-		this.featureMap=new HashMap<Integer,HashMap<Integer,Word>>();
-		this.trackMap=new HashMap<Word,HashSet<FPNode>> ();
-		Word feature = null;
-		this.path=path;
-		this.root=new FPNode(feature);
+	private String featurevectorPath=null;
+	private String multiplicityPath=null;
+	
+	public FeatureVector_Trie(){
+		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>();
+		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> ();
+		ObservedFeatureOccurrence feature = null;
+		this.root=new TrieNode(feature);
 		this.count=0;
 		this.totalcount=0;
 		this.distinctcount=0;
 	}
-
-	/**
-	 * give a deep copy
-	 * @param input
-	 */
-	public FP_InferenceTree(FP_InferenceTree input){
-		if(input.curlist!=null)
-			this.curlist=new ArrayList<Word>(input.curlist);
-
-		this.featureMap=new HashMap<Integer,HashMap<Integer,Word>>(input.featureMap);
-
-		this.trackMap=new HashMap<Word,HashSet<FPNode>>(input.trackMap);
-
-		this.root=input.root;
-		this.count=input.count;
-		this.distinctcount=input.distinctcount;
-		this.totalcount=input.totalcount;
-		this.path=input.path;
-		this.dumpPath=input.dumpPath;
+	
+	public FeatureVector_Trie(String featureVectorPath,String multiplicityPath){
+		this.featurevectorPath=featureVectorPath;
+		this.multiplicityPath=multiplicityPath;
+		ArrayList<Integer> multiplicities=new ArrayList<Integer>();
+		
+		//register feature vectors using one linear scan over the data
+		try {
+			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
+			Scanner multiplicitybr=new Scanner(new File(multiplicityPath)).useDelimiter(GlobalVariables.inputDataDelimiter);			
+			String line;
+			while((line=br.readLine())!=null){
+				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
+				if(!vector.isEmpty()){
+				Integer multiplicity=multiplicitybr.nextInt();
+				multiplicities.add(multiplicity);
+				this.registerFeatureVector(vector, multiplicity);
+				}
+			}
+			multiplicitybr.close();
+			br.close();
+		} catch ( IOException e) {
+			e.printStackTrace();
+		}
+		
+		//after registration, use one more linear scan to consume and build the trie
+		try {
+			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
+			String line;
+			int index=0;
+			while((line=br.readLine())!=null){
+				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
+				if (vector.size()>0){	
+					this.consumeFeatureVector(vector, multiplicities.get(index));
+					index++;
+				}				
+			}
+			br.close();
+		} catch ( IOException e) {
+			e.printStackTrace();
+		}
+		
+	}
+	
+	public FeatureVector_Trie(String featureVectorPath){
+		this.featurevectorPath=featureVectorPath;
+		//register feature vectors using one linear scan over the data
+		try {
+			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
+			String line;
+			while((line=br.readLine())!=null){
+				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
+				if(!vector.isEmpty()){
+				this.registerFeatureVector(vector);
+				}
+			}
+			br.close();
+		} catch ( IOException e) {
+			e.printStackTrace();
+		}
+		
+		//after registration, use one more linear scan to consume and build the trie
+		try {
+			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
+			String line;
+			while((line=br.readLine())!=null){
+				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
+				this.consumeFeatureVector(vector);				
+			}
+			br.close();
+		} catch ( IOException e) {
+			e.printStackTrace();
+		}
 	}
 
 	/**
 	 * give a deep copy
 	 * @param input
 	 */
-	public FP_InferenceTree(FP_InferenceTree input,String path,String dumppath){
-		if(input.curlist!=null)
-			this.curlist=new ArrayList<Word>(input.curlist);
-
-		this.featureMap=new HashMap<Integer,HashMap<Integer,Word>>(input.featureMap);
-
-		this.trackMap=new HashMap<Word,HashSet<FPNode>>(input.trackMap);
+	public FeatureVector_Trie(FeatureVector_Trie input){
+		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>(input.observedFeatureOccurrenceMap);
+		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>>(input.trackMap);
 		this.root=input.root;
 		this.count=input.count;
 		this.distinctcount=input.distinctcount;
 		this.totalcount=input.totalcount;
-		this.path=path;
-		this.dumpPath=dumppath;
+		this.featurevectorPath=input.featurevectorPath;
+		this.multiplicityPath=input.multiplicityPath;
 	}
 
-	public String getPath(){
-		return this.path;
-	}
-
-	public String getDumpPath(){
-		return this.dumpPath;
-	}
-
-
-	public HashMap<Word,HashSet<FPNode>> getTrackMap(){
+	public HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> getTrackMap(){
 		return this.trackMap;
 	}
 
 	public void clearTree(){
 		this.root.getChildren().clear();
-		this.curlist=null;
-		this.featureMap.clear();
-	}
-
-	public void prepareToReceiveFeatureList(){
-		try {
-			this.wr=new PrintWriter(path);
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		}
-	}
-	public void finishReceivingFeatureList(){
-		this.wr.close();
+		this.observedFeatureOccurrenceMap.clear();
 	}
 
 	/**
@@ -137,12 +155,12 @@ public class FP_InferenceTree {
 	 * it assumes the input FPPath is correctly ordered
 	 * @param list
 	 */
-	public void consume(FPPath P){
-		FPNode tail=P.getLast();
+	public void consume(TriePath P){
+		TrieNode tail=P.getLast();
 		int tailCount=tail.getCount();
 
 		//traverse this tree
-		FPNode start=null;//start is the node that last match happens
+		TrieNode start=null;//start is the node that last match happens
 		if (root.getChildren().isEmpty()){
 			//update the record for newly consumed instance
 			this.instanceMap.put(tail,tailCount);
@@ -171,19 +189,19 @@ public class FP_InferenceTree {
 	 * @param start
 	 * @param P
 	 */
-	private void branch(FPNode start,FPPath P){
+	private void branch(TrieNode start,TriePath P){
 
-		FPNode currentnode=start;
-		FPNode node;
+		TrieNode currentnode=start;
+		TrieNode node;
 		while (!P.getList().isEmpty()){
 			node=P.pullFirst();
 			currentnode.addChild(node);			
 			//register this node in track map whenever a new node is added
-			Word sfeature=node.getWord();
+			ObservedFeatureOccurrence sfeature=node.getWord();
 			if(sfeature!=null){
-				HashSet<FPNode> list=this.trackMap.get(sfeature);
+				HashSet<TrieNode> list=this.trackMap.get(sfeature);
 				if(list==null){
-					list=new HashSet<FPNode>();
+					list=new HashSet<TrieNode>();
 					//register it into trackmap
 					this.trackMap.put(sfeature, list);
 				}
@@ -195,12 +213,8 @@ public class FP_InferenceTree {
 	}
 
 
-	public FPNode getRoot(){
+	public TrieNode getRoot(){
 		return this.root;
-	}
-
-	public void setTrackMap(HashMap<Word,HashSet<FPNode>> input){
-		this.trackMap=input;
 	}
 
 	/**
@@ -209,13 +223,13 @@ public class FP_InferenceTree {
 	 * @param feature
 	 * @return
 	 */
-	private FPNode locate(FPNode root,FPPath P){
+	private TrieNode locate(TrieNode root,TriePath P){
 
 		if (!P.getList().isEmpty()){
-			FPNode targetNode=P.getFirst();
-			HashMap<Integer, HashMap<Integer,FPNode>> chMap=root.getChildren();
-			HashMap<Integer,FPNode> map=chMap.get(targetNode.getWord().getFeatureID());
-			FPNode nextnode=null;
+			TrieNode targetNode=P.getFirst();
+			HashMap<Integer, HashMap<Integer,TrieNode>> chMap=root.getChildren();
+			HashMap<Integer,TrieNode> map=chMap.get(targetNode.getWord().getFeatureID());
+			TrieNode nextnode=null;
 			if (map!=null)
 				nextnode=map.get(targetNode.getWord().getOccurrence());
 
@@ -232,7 +246,7 @@ public class FP_InferenceTree {
 		else return root;
 	}
 
-	public boolean validateNodes(FPNode root){
+	private boolean validateNodes(TrieNode root){
 		//validate node depths
 		if(root==this.root){
 			if(root.getDepth()!=0)
@@ -243,13 +257,13 @@ public class FP_InferenceTree {
 				return false;
 		}
 
-		HashMap<Integer, HashMap<Integer, FPNode>> map=root.getChildren();
+		HashMap<Integer, HashMap<Integer, TrieNode>> map=root.getChildren();
 		//if it has children
 		if(!map.isEmpty()){
 			int count=0;
-			for(Entry<Integer, HashMap<Integer, FPNode>> en: map.entrySet()){
-				HashMap<Integer, FPNode> featuremap=en.getValue();
-				for(Entry<Integer,FPNode> enn: featuremap.entrySet()){
+			for(Entry<Integer, HashMap<Integer, TrieNode>> en: map.entrySet()){
+				HashMap<Integer, TrieNode> featuremap=en.getValue();
+				for(Entry<Integer,TrieNode> enn: featuremap.entrySet()){
 					if(enn.getValue().getCount()<=0)
 						return false;
 					else
@@ -268,15 +282,15 @@ public class FP_InferenceTree {
 		return true;
 	}
 
-	public boolean validateTrackMap(FPNode root){
-		HashMap<Integer, HashMap<Integer, FPNode>> map=root.getChildren();
+	private boolean validateTrackMap(TrieNode root){
+		HashMap<Integer, HashMap<Integer, TrieNode>> map=root.getChildren();
 		//if it has children
 		if(!map.isEmpty()){
-			for(Entry<Integer, HashMap<Integer, FPNode>> en: map.entrySet()){
-				HashMap<Integer, FPNode> featuremap=en.getValue();
-				for(Entry<Integer,FPNode> enn: featuremap.entrySet()){
-					FPNode node=enn.getValue();
-					Word sfeature=node.getWord();
+			for(Entry<Integer, HashMap<Integer, TrieNode>> en: map.entrySet()){
+				HashMap<Integer, TrieNode> featuremap=en.getValue();
+				for(Entry<Integer,TrieNode> enn: featuremap.entrySet()){
+					TrieNode node=enn.getValue();
+					ObservedFeatureOccurrence sfeature=node.getWord();
 					if(!this.trackMap.get(sfeature).contains(node))
 						return false;
 					else {
@@ -289,7 +303,7 @@ public class FP_InferenceTree {
 		return true;
 	}
 
-	public boolean validateInstanceMap(){
+	private boolean validateInstanceMap(){
 		int sum=0;
 		for (Integer count:this.instanceMap.values())
 			sum+=count;
@@ -316,8 +330,8 @@ public class FP_InferenceTree {
 		int num=this.numOfLeaves;
 		if(num<0){
 			num=0;
-			for(Entry<Word,HashSet<FPNode>> en:this.trackMap.entrySet()){  		
-				for(FPNode n: en.getValue()){
+			for(Entry<ObservedFeatureOccurrence,HashSet<TrieNode>> en:this.trackMap.entrySet()){  		
+				for(TrieNode n: en.getValue()){
 					//if it is a leaf node, then calculate P(i) for this path
 					if(n.getChildren().isEmpty()){						
 						num++;
@@ -329,12 +343,12 @@ public class FP_InferenceTree {
 	}
 
 	/**
-	 * a naive summary is simply a bag of patterns mapped with their marginals 
+	 * a naive summary is simply a bag of features mapped with their marginals 
 	 * @return
 	 */
-	public LinkedHashMap<Word,Double> getNaiveSummary(){
+	public LinkedHashMap<ObservedFeatureOccurrence,Double> getNaiveSummary(){
 
-		LinkedHashMap<Word,Double> naiveSummary=new LinkedHashMap<Word,Double>();
+		LinkedHashMap<ObservedFeatureOccurrence,Double> naiveSummary=new LinkedHashMap<ObservedFeatureOccurrence,Double>();
 		for (Entry<Integer, TreeMap<Integer, Integer>> en: this.getFeatureDistribution().entrySet()) {
 			int featureID=en.getKey();
 			for (Entry<Integer, Integer> enn: en.getValue().entrySet()){
@@ -342,7 +356,7 @@ public class FP_InferenceTree {
 				int frequency=enn.getValue();
 				if(occurrence!=0){
 					double marginal=(double)frequency/(double)this.count;
-					Word w=this.featureMap.get(featureID).get(occurrence);
+					ObservedFeatureOccurrence w=this.observedFeatureOccurrenceMap.get(featureID).get(occurrence);
 					if(w==null){
 						System.out.println("cannot find word for featureID "+featureID+" occurrence "+occurrence +". Please check.");
 					}
@@ -353,12 +367,12 @@ public class FP_InferenceTree {
 		return naiveSummary;		
 	}
 
-	public int getNodeNumber(FPNode root){
+	private int getNodeNumber(TrieNode root){
 		int count=1;
-		HashMap<Integer, HashMap<Integer,FPNode>> map = root.getChildren();
+		HashMap<Integer, HashMap<Integer,TrieNode>> map = root.getChildren();
 		if (!map.isEmpty()){
-			for (Entry<Integer, HashMap<Integer,FPNode>> en: map.entrySet()){
-				for (Entry<Integer, FPNode> entry: en.getValue().entrySet()){
+			for (Entry<Integer, HashMap<Integer,TrieNode>> en: map.entrySet()){
+				for (Entry<Integer, TrieNode> entry: en.getValue().entrySet()){
 					count+=getNodeNumber(entry.getValue());
 				}
 			}
@@ -366,7 +380,7 @@ public class FP_InferenceTree {
 		return count;
 	}
 
-	public int getNodeNumber(){
+	public int getNumberOfNodes(){
 		return getNodeNumber(this.root);
 	}
 
@@ -374,9 +388,8 @@ public class FP_InferenceTree {
 		return this.root.getChildren().isEmpty();
 	}
 
-
 	/**
-	 * get the hyperclique patterns of this tree
+	 * get the hyper-clique patterns of this tree
 	 * @param root
 	 * @return
 	 */
@@ -384,19 +397,25 @@ public class FP_InferenceTree {
 		//create a conditional tree out of this FP tree which conditioned on nothing at first
 		double prob=(double)(supportLower+1)/(double)this.count;
 		this.entropyLower=-prob*Math.log(prob)-(1-prob)*Math.log(1-prob);	
-		ConditionalTree ctree=new ConditionalTree(hconfidence,supportLower,this.count,this.entropyLower,this,this.featureMap);
+		ConditionalTrie ctree=new ConditionalTrie(hconfidence,supportLower,this.count,this.entropyLower,this,this.observedFeatureOccurrenceMap);
 		return ctree.getHyperCliquePatterns();
 	}
 
-	public FPPath stripPathEndOnNodeExcluding(FPNode node){		
-		FPPath result=new FPPath();
+	/**
+	 * strip out and make a copy of a path that ends with input node from the trie
+	 * the output is a TriePath excluding the input node
+	 * @param node
+	 * @return
+	 */
+	public TriePath stripPathEndOnNodeExcluding(TrieNode node){		
+		TriePath result=new TriePath();
 		//trace the full path that involves this node
-		FPNode parent=node.getParent();
+		TrieNode parent=node.getParent();
 		int nodeCount=node.getCount();
 
 		while(parent!=null&&parent.getWord()!=null){
 			//copy this node
-			FPNode parentnode=new FPNode(parent);
+			TrieNode parentnode=new TrieNode(parent);
 			parentnode.addCount(nodeCount);
 			result.addToFirst(parentnode);
 			parent=parent.getParent();			
@@ -415,142 +434,99 @@ public class FP_InferenceTree {
 	}
 
 	/**
-	 * get an ordered list of all features
+	 * register a feature vector in this tree
 	 */
-	public List<Word> getFeatureOrder(){
-		if (this.curlist==null){
-			this.curlist=new ArrayList<Word>();
-			for (Entry<Integer,HashMap<Integer,Word>> en:this.featureMap.entrySet()){
-				for (Entry<Integer,Word> feature:en.getValue().entrySet())
-					this.curlist.add(feature.getValue());
-			} 
-			Collections.sort(this.curlist);
-		}
-		return this.curlist;
-	}
-
-
-	/**
-	 * read from what's saved and build its tree
-	 */
-	public void buildTree(){
-		try {
-			Pattern q;
-			FPPath p;
-			//System.out.println("begin reading stored feature sets.");
-			String line;
-			readFromFirstRun = new BufferedReader(new FileReader(this.path));
-			while ((line = readFromFirstRun.readLine()) != null) {
-				q=new Pattern(line,this.featureMap);
-				if (!q.getSet().isEmpty()){	
-					ArrayList<Word> qlist=new ArrayList<Word>();
-					for(Word word: q.getMaterializedSet())
-						qlist.add(word);
-					//sort the features first
-					Collections.sort(qlist);
-
-					p=new FPPath();
-					for (Word word:qlist){	
-						FPNode n=new FPNode(word);
-						n.addCount(q.multiplicity-1);
-						p.addToTail(n);
-					}
-					this.consume(p);
-				}
-				else {
-					System.out.println("error parsing line: "+line+" empty features sequence found");
-				}				
-			}				
-			readFromFirstRun.close();
-			//this.validateTree();
-			this.clearTempFilesOnDisk();
-		}  catch (IOException e) {
-			e.printStackTrace();
-		}	
-	}
-
-	/**
-	 * turns a list of Feature with occurrences into a HashSet of Word
-	 * and register it in this tree
-	 */
-	public void consumeFeatureList(FeatureVector vector){
-		Pattern featureset=this.translateFeatureVector(vector);
-		if (!featureset.getSet().isEmpty()){										
+	public void registerFeatureVector(FeatureVector vector){
+		
+		Pattern pattern=this.featurevector2pattern(vector);
+		if (pattern.size()>0){										
 			this.count++;
 			this.distinctcount++;
-			this.totalcount+=featureset.getMaterializedSet().size();
-			this.wr.println(featureset.toLabelString());
-			//add the contribution to all features
-			int contrib=featureset.getSet().size()-1;
-			for (Word feature: featureset.getMaterializedSet()){
-				feature.addContribution(contrib);
+			this.totalcount+=pattern.size();
+			//add the contribution to all observed feature with occcurrences
+			int contrib=pattern.size()-1;
+			for (ObservedFeatureOccurrence observedFeatureOccurrence: pattern.getObservedFeatureOccurrenceSet()){
+				observedFeatureOccurrence.addContribution(contrib);
 			}
 		}
 		else{
 			System.out.println("empty feature vector consumed");
 		}		
 	}
-
-
+	
 	/**
-	 * turns a list of Feature with occurrences into a HashSet of Word
-	 * and register it in this tree
+	 * register a feature vector in this tree
 	 */
-	public void consumeFeatureList(FeatureVector vector,int multiplicity){
-		Pattern featureset=this.translateFeatureVector(vector);
-		if (!featureset.getSet().isEmpty()){	
-			featureset.setMultiplicity(multiplicity);
+	public void registerFeatureVector(FeatureVector vector,int multiplicity){	
+		Pattern pattern=this.featurevector2pattern(vector);
+		if (pattern.size()>0){										
 			this.count+=multiplicity;
 			this.distinctcount++;
-			this.totalcount+=featureset.getMaterializedSet().size()*multiplicity;
-			this.wr.println(featureset.toLabelString());
-			//add the contribution to all features
-			int contrib=featureset.getSet().size()-1;
-			for (Word feature: featureset.getMaterializedSet()){
-				feature.addContribution(contrib*multiplicity);
+			this.totalcount+=pattern.size()*multiplicity;
+			//add the contribution to all observed feature with occurrences
+			int contrib=pattern.size()-1;
+			for (ObservedFeatureOccurrence observedFeatureOccurrence: pattern.getObservedFeatureOccurrenceSet()){
+				observedFeatureOccurrence.addContribution(contrib*multiplicity);
 			}
 		}
 		else{
 			System.out.println("empty feature vector consumed");
 		}		
 	}
-
-	private void clearTempFilesOnDisk(){
-		try {
-			Path temppath = Paths.get(path);
-			Files.deleteIfExists(temppath);
-		} catch (NoSuchFileException x) {
-			System.err.format("%s: no such" + " file or directory%n", path);
-		} catch (DirectoryNotEmptyException x) {
-			System.err.format("%s not empty%n", path);
-		} catch (IOException x) {
-			// File permission problems are caught here.
-			System.err.println(x);
+	
+	public void consumeFeatureVector(FeatureVector vector,int multiplicity){
+		if (!vector.isEmpty()){
+		Pattern p=this.featurevector2pattern(vector);
+	    ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
+			//sort into sequence to form a path
+			Collections.sort(qlist);
+			TriePath triepath=new TriePath();
+			for (ObservedFeatureOccurrence ofo:qlist){	
+				TrieNode n=new TrieNode(ofo);
+				n.addCount(multiplicity-1);
+				triepath.addToTail(n);
+			}
+			this.consume(triepath);		
 		}
 	}
-
+	
+	public void consumeFeatureVector(FeatureVector vector){
+		if (!vector.isEmpty()){
+		Pattern p=this.featurevector2pattern(vector);
+	    ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
+			//sort into sequence to form a path
+			Collections.sort(qlist);
+			TriePath triepath=new TriePath();
+			for (ObservedFeatureOccurrence ofo:qlist){	
+				TrieNode n=new TrieNode(ofo);
+				triepath.addToTail(n);
+			}
+			this.consume(triepath);		
+		}
+	}
+	
 	/**
 	 * returns the number of feature sets that contains the feature vector
 	 * @param vector
 	 * @return
 	 */
 	public int getCountOfContainingFeatureVector(FeatureVector vector){
-		Pattern featureset=this.translateFeatureVector(vector);
-		ArrayList<Word> featurelist=new ArrayList<Word>(featureset.getMaterializedSet());		
+		Pattern featureset=this.featurevector2pattern(vector);
+		ArrayList<ObservedFeatureOccurrence> featurelist=new ArrayList<ObservedFeatureOccurrence>(featureset.getObservedFeatureOccurrenceSet());		
 		int sum=0;
 		if(!featurelist.isEmpty()){
 			//sort by its define feature order
 			Collections.sort(featurelist);
-			HashSet<FPNode> candidatepaths=this.trackMap.get(featurelist.get(featurelist.size()-1));
+			HashSet<TrieNode> candidatepaths=this.trackMap.get(featurelist.get(featurelist.size()-1));
 
 			if(featurelist.size()>1){
-				for (FPNode node: candidatepaths){
+				for (TrieNode node: candidatepaths){
 					//start from next node to match
-					FPNode startNode=node.getParent();
+					TrieNode startNode=node.getParent();
 					//start from last unmatched feature in the target feature list to match
 					int lastUnmatchedInd=featurelist.size()-2;
 					for(int i=startNode.getDepth();i>0;i--){
-						Word targetFeature=featurelist.get(lastUnmatchedInd);	
+						ObservedFeatureOccurrence targetFeature=featurelist.get(lastUnmatchedInd);	
 						if(targetFeature.equals(startNode.getWord())){
 							lastUnmatchedInd--;
 							if(lastUnmatchedInd==-1){
@@ -566,7 +542,7 @@ public class FP_InferenceTree {
 				}
 			}
 			else {
-				for (FPNode node: candidatepaths){
+				for (TrieNode node: candidatepaths){
 					sum+=node.getCount();
 				}
 			}
@@ -583,18 +559,18 @@ public class FP_InferenceTree {
 	 * @return
 	 */
 	public int getCountOfExactlyMatchingFeatureVector(FeatureVector vector){
-		Pattern featureset=this.translateFeatureVector(vector);
-		ArrayList<Word> featurelist=new ArrayList<Word>(featureset.getMaterializedSet());
+		Pattern featureset=this.featurevector2pattern(vector);
+		ArrayList<ObservedFeatureOccurrence> featurelist=new ArrayList<ObservedFeatureOccurrence>(featureset.getObservedFeatureOccurrenceSet());
 		if(!featurelist.isEmpty()){
 			//sort by its defined feature order
 			Collections.sort(featurelist);
-			FPNode currentMatch=this.root;
+			TrieNode currentMatch=this.root;
 			for (int i=0;i<featurelist.size();i++){
-				HashMap<Integer, HashMap<Integer, FPNode>> map=currentMatch.getChildren();
-				Word currentWord=featurelist.get(i);
+				HashMap<Integer, HashMap<Integer, TrieNode>> map=currentMatch.getChildren();
+				ObservedFeatureOccurrence currentWord=featurelist.get(i);
 				int featureID=currentWord.getFeatureID();
 				int occurrence=currentWord.getOccurrence();
-				FPNode nextMatch=map.get(featureID).get(occurrence);
+				TrieNode nextMatch=map.get(featureID).get(occurrence);
 				if (nextMatch==null)
 					return 0;
 				else
@@ -602,10 +578,10 @@ public class FP_InferenceTree {
 			}
 			//minus the count of its children and get the count
 			int childsum=0;
-			HashMap<Integer, HashMap<Integer, FPNode>> map=currentMatch.getChildren();
-			for (Entry<Integer, HashMap<Integer, FPNode>> en: map.entrySet()){
-				HashMap<Integer, FPNode> childmap=en.getValue();
-				for (Entry<Integer, FPNode> enn: childmap.entrySet()){
+			HashMap<Integer, HashMap<Integer, TrieNode>> map=currentMatch.getChildren();
+			for (Entry<Integer, HashMap<Integer, TrieNode>> en: map.entrySet()){
+				HashMap<Integer, TrieNode> childmap=en.getValue();
+				for (Entry<Integer, TrieNode> enn: childmap.entrySet()){
 					childsum+=enn.getValue().getCount();
 				}
 			}			
@@ -621,17 +597,17 @@ public class FP_InferenceTree {
 	 * validate the functionality of computing marginal probability of patterns
 	 * @return
 	 */
-	public boolean validateProbabilityComputation(){
+	private boolean validateProbabilityComputation(){
 		int sumcount=0;
-		HashMap<FPNode,Integer> instanceMap=this.instanceMap;
+		HashMap<TrieNode,Integer> instanceMap=this.instanceMap;
 
-		for(Entry<FPNode,Integer> en:instanceMap.entrySet()){  
+		for(Entry<TrieNode,Integer> en:instanceMap.entrySet()){  
 			int purecount=en.getValue();	
-			FPNode n=en.getKey();
+			TrieNode n=en.getKey();
 			FeatureVector vector=new FeatureVector();
-			FPNode startNode=n;
+			TrieNode startNode=n;
 			for(int i=n.getDepth();i>0;i--){
-				Word sfeature=startNode.getWord();
+				ObservedFeatureOccurrence sfeature=startNode.getWord();
 				int ID=sfeature.getFeatureID();
 				int occur=sfeature.getOccurrence();
 				FeatureVector piece=new FeatureVector();
@@ -692,10 +668,6 @@ public class FP_InferenceTree {
 		return this.totalcount;
 	}
 
-	public HashMap<Integer,HashMap<Integer,Word>> getWordMap(){
-		return this.featureMap;
-	}
-
 	/**
 	 * Compute the Summary Error of the Naive Summary
 	 * @return
@@ -713,7 +685,8 @@ public class FP_InferenceTree {
 	 * @param right
 	 * @return
 	 */
-	public static double getNaiveSummaryDistance(FP_InferenceTree left,FP_InferenceTree right){
+	public static double getNaiveSummaryDistance(FeatureVector_Trie left,FeatureVector_Trie right){
+		//TODO
 		double divergence=0;
 		HashMap<Integer,TreeMap<Integer,Integer>> leftNaiveSummary=left.getFeatureDistribution();
 		HashMap<Integer,TreeMap<Integer,Integer>> rightNaiveSummary=right.getFeatureDistribution();		
@@ -745,7 +718,8 @@ public class FP_InferenceTree {
 		return divergence; 	
 	}
 
-	public static double JensenShannonDivergence(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution){
+	private static double JensenShannonDivergence(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution){
+		//TODO
 		double divergence=0;
 		double leftsum=0;
 		for (Entry<Integer,Integer> en: leftDistribution.entrySet()){
@@ -790,11 +764,11 @@ public class FP_InferenceTree {
 	 * get all marginals p(X_i>=k)
 	 * @return
 	 */
-	public HashMap<Word,Integer> getFrequencyCount(){
-		HashMap<Word,Integer> frequencyCount=new HashMap<Word,Integer>();  		
-		for(Entry<Word, HashSet<FPNode>> en:this.trackMap.entrySet()){
+	public HashMap<ObservedFeatureOccurrence,Integer> getFrequencyCount(){
+		HashMap<ObservedFeatureOccurrence,Integer> frequencyCount=new HashMap<ObservedFeatureOccurrence,Integer>();  		
+		for(Entry<ObservedFeatureOccurrence, HashSet<TrieNode>> en:this.trackMap.entrySet()){
 			int sum=0;
-			for(FPNode n:en.getValue())
+			for(TrieNode n:en.getValue())
 				sum+=n.getCount();   			
 			frequencyCount.put(en.getKey(), sum);
 		}
@@ -837,9 +811,9 @@ public class FP_InferenceTree {
 		double IC=this.TrueEntropy;   
 		if(IC<0){
 			IC=0;
-			HashMap<FPNode,Integer> instanceMap=this.instanceMap;
+			HashMap<TrieNode,Integer> instanceMap=this.instanceMap;
 			int sum=0;
-			for(Entry<FPNode,Integer> en:instanceMap.entrySet()){  		
+			for(Entry<TrieNode,Integer> en:instanceMap.entrySet()){  		
 				int purecount=en.getValue();
 				double pi=(double)purecount;
 				pi=pi/(double)this.count;
@@ -864,10 +838,10 @@ public class FP_InferenceTree {
 		if(this.featureOccurrenceGEQMarginal==null){
 			this.featureOccurrenceGEQMarginal=new LinkedHashMap<Integer,TreeMap<Integer,Integer>>();
 
-			TreeMap<Word,Integer> frequencyCount=new TreeMap<Word,Integer>(this.getFrequencyCount());
+			TreeMap<ObservedFeatureOccurrence,Integer> frequencyCount=new TreeMap<ObservedFeatureOccurrence,Integer>(this.getFrequencyCount());
             
 			
-			for(Entry<Word, Integer> en: frequencyCount.entrySet()){
+			for(Entry<ObservedFeatureOccurrence, Integer> en: frequencyCount.entrySet()){
 				int ID=en.getKey().getFeatureID();
 				int occurrence=en.getKey().getOccurrence();
 				int frequency=en.getValue();
@@ -926,29 +900,22 @@ public class FP_InferenceTree {
 		}	
 		return featureOccurrenceEQMarginal;
 	} 
-
+	
 	/**
-	 * translate FeatureVector into WordSet which can be understand by FP Tree
+	 * translate FeatureVector into Pattern which can be understand by FP Tree
 	 * @param vector
 	 * @return
 	 */
-	private Pattern translateFeatureVector(FeatureVector vector){
-		Pattern featureset=new Pattern();
-		Set<Integer> distinctFeatures=vector.getDistinctFeatures();
-		//create an array of sortable features
+	private Pattern featurevector2pattern(FeatureVector vector){
+		Pattern pattern=new Pattern();
+		Set<Integer> distinctFeatures=vector.getDistinctFeatures();	
 		for (Integer feature: distinctFeatures){
-			int featureID=feature;
-			int occur=vector.getFeatureOccurrence(featureID);
 			//critical! if an feature happens occur times, then it implies from 1 to occur it all happens
-			Word sfeature = null;
-			for (int i=1;i<=occur;i++){
-				sfeature=Word.createNewWord(featureID,i, this.featureMap);
-				featureset.addToSetAnyWay(sfeature);
-			}
+			pattern.addToSet(feature,vector.getFeatureOccurrence(feature),this.observedFeatureOccurrenceMap);
 		}
-		return featureset;
+		return pattern;
 	}
-
+	
 	/**
 	 * get the number of non-zero marginals in naive summary
 	 * @return

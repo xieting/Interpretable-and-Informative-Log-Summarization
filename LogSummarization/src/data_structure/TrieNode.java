@@ -8,41 +8,25 @@ import java.util.HashMap;
  * @author Ting Xie
  *
  */
-public class FPNode implements Comparable<FPNode>{
-      private Word feature;
+public class TrieNode implements Comparable<TrieNode>{
+      private ObservedFeatureOccurrence feature;
       private int depth;//depth of this node
       private int count;//count of # of occurrences of the pattern represented by this node
-	  private HashMap<Integer, HashMap<Integer,FPNode>> chMap;// hashmap of its children branch, the first Integer is the feature label, second Integer is the occurrence
-	  private FPNode parent;//its parent node
-	  private int offset;//used to offset the occurrences of its sortableFeature
+	  private HashMap<Integer, HashMap<Integer,TrieNode>> chMap;// hashmap of its children branch, the first Integer is the feature label, second Integer is the occurrence
+	  private TrieNode parent;//its parent node
 	  
-    public FPNode(Word feature){
+    public TrieNode(ObservedFeatureOccurrence feature){
     	this.feature=feature;
     	this.count=1;
-    	this.chMap=new HashMap<Integer, HashMap<Integer,FPNode>>();
+    	this.chMap=new HashMap<Integer, HashMap<Integer,TrieNode>>();
     	this.depth=0;
-    	this.offset=0;
     }
     
-    public FPNode(FPNode node){
+    public TrieNode(TrieNode node){
     	this.feature=node.feature;
     	this.count=0;
-    	this.chMap=new HashMap<Integer, HashMap<Integer,FPNode>>();
+    	this.chMap=new HashMap<Integer, HashMap<Integer,TrieNode>>();
     	this.depth=0;
-    	this.offset=0;
-    }
-    
-    public int getOffSet(){
-    	return this.offset;
-    }
-    
-    public void setOffSet(int count){
-    	if (count>this.offset)
-    	this.offset=count;
-    }
-    
-    public void addOffSet(int count){
-    	this.offset+=count;
     }
    
     /**
@@ -53,11 +37,11 @@ public class FPNode implements Comparable<FPNode>{
     	return this.count;
     }
     
-    public FPNode getParent(){return this.parent;}
+    public TrieNode getParent(){return this.parent;}
     
-    public void setParent(FPNode n){this.parent=n;}
+    public void setParent(TrieNode n){this.parent=n;}
     
-    public Word getWord(){
+    public ObservedFeatureOccurrence getWord(){
     	return this.feature;
     }
 
@@ -66,13 +50,13 @@ public class FPNode implements Comparable<FPNode>{
      * add a single node as its child
      * @param node
      */
-    public void addChild(FPNode node){
+    public void addChild(TrieNode node){
     	int label=node.getWord().getFeatureID();
     	int occurrence=node.getWord().getOccurrence();
     	
-    	HashMap<Integer,FPNode> map=this.chMap.get(label);
+    	HashMap<Integer,TrieNode> map=this.chMap.get(label);
     	if (map==null){
-    		map=new HashMap<Integer,FPNode> ();
+    		map=new HashMap<Integer,TrieNode> ();
     		this.chMap.put(label, map);
     	}
 
@@ -87,12 +71,12 @@ public class FPNode implements Comparable<FPNode>{
      * assume child is already in its children map
      * @param child
      */
-    public void removeChild(FPNode child){
-    	Word sfeature=child.getWord();
+    public void removeChild(TrieNode child){
+    	ObservedFeatureOccurrence sfeature=child.getWord();
     	int occurrence=sfeature.getOccurrence();   	
     	int label=sfeature.getFeatureID();
     	
-    	HashMap<Integer, FPNode> map=this.chMap.get(label);
+    	HashMap<Integer, TrieNode> map=this.chMap.get(label);
     	if(map!=null){
     	map.remove(occurrence,child);
     	//if map is empty
@@ -129,13 +113,13 @@ public class FPNode implements Comparable<FPNode>{
 	}
 	
 	
-	public HashMap<Integer, HashMap<Integer,FPNode>>  getChildren(){
+	public HashMap<Integer, HashMap<Integer,TrieNode>>  getChildren(){
 		return this.chMap;
 	}
 
 
 	@Override
-	public int compareTo(FPNode o) {		
+	public int compareTo(TrieNode o) {		
 		return this.getWord().compareTo(o.getWord());
 	}
 }

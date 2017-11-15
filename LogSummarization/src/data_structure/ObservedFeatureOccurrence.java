@@ -14,7 +14,7 @@ import java.util.HashMap;
  *
  */
 
-public class Word implements Comparable<Word>, Serializable{
+public class ObservedFeatureOccurrence implements Comparable<ObservedFeatureOccurrence>, Serializable{
 	/**
 	 * 
 	 */
@@ -25,7 +25,7 @@ public class Word implements Comparable<Word>, Serializable{
     private int occurrence;
     private int hashcode;
     
-	private Word(int featureID,int occurrence){
+	private ObservedFeatureOccurrence(int featureID,int occurrence){
 		this.featureID=featureID;
 		this.totalContribution=0;
 		this.occurrence=occurrence;
@@ -47,20 +47,20 @@ public class Word implements Comparable<Word>, Serializable{
     }
 
     
-    public static Word createNewWord(int featureID,int occurrence,HashMap<Integer,HashMap<Integer,Word>> featureMap){   	
-    	HashMap<Integer,Word> map=featureMap.get(featureID);
-    	Word it;   	
+    public static ObservedFeatureOccurrence createNewInstance(int featureID,int occurrence,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> featureMap){   	
+    	HashMap<Integer,ObservedFeatureOccurrence> map=featureMap.get(featureID);
+    	ObservedFeatureOccurrence it;   	
     	if (map==null){
-    		it=new Word(featureID,occurrence);
+    		it=new ObservedFeatureOccurrence(featureID,occurrence);
     		//register in featuremap
-               map=new HashMap<Integer,Word>();
+               map=new HashMap<Integer,ObservedFeatureOccurrence>();
                map.put(occurrence,it);
     		   featureMap.put(featureID, map);
     	}
     	else {
     		it=map.get(occurrence);
     		if (it ==null){
-    			it=new Word(featureID,occurrence);
+    			it=new ObservedFeatureOccurrence(featureID,occurrence);
     			map.put(occurrence,it);
     		}
     	}
@@ -77,7 +77,7 @@ public class Word implements Comparable<Word>, Serializable{
 
 	@Override
 	public boolean equals(Object o){
-		Word feature=(Word) o;
+		ObservedFeatureOccurrence feature=(ObservedFeatureOccurrence) o;
 		if (this.featureID==feature.featureID&&this.occurrence==feature.occurrence) return true;
 		else return false;	
 	}
@@ -90,7 +90,7 @@ public class Word implements Comparable<Word>, Serializable{
 	
 	@Override
 	//need to consider question mark and longer features
-	public int compareTo(Word arg0) {
+	public int compareTo(ObservedFeatureOccurrence arg0) {
 		if (this.totalContribution>arg0.getContribution())
 		return -1;
 		else if (this.totalContribution<arg0.getContribution())

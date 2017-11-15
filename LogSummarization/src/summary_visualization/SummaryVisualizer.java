@@ -11,8 +11,8 @@ import javax.swing.JPanel;
 
 import com.google.common.collect.HashMultiset;
 
-import data_structure.FP_InferenceTree;
-import data_structure.Word;
+import data_structure.FeatureVector_Trie;
+import data_structure.ObservedFeatureOccurrence;
 import feature_management.BasisFeature;
 import feature_management.Feature;
 import feature_management.GlobalVariables;
@@ -38,18 +38,18 @@ public class SummaryVisualizer {
 	int clusterID;
 	float threshold;
 
-	public SummaryVisualizer (float threshold,int clusterID,FP_InferenceTree tree,HashMap<Integer,Word> featureMap){
+	public SummaryVisualizer (float threshold,int clusterID,FeatureVector_Trie tree,HashMap<Integer,ObservedFeatureOccurrence> featureMap){
 		this.threshold=threshold;
 		this.clusterID=clusterID;
 		this.sectionMap=new HashMap<String,ContentWithOpacity>();
 		this.KL=tree.getNaiveSummaryError();
-		HashMap<Word,Integer> frequencyCount=tree.getFrequencyCount();
+		HashMap<ObservedFeatureOccurrence,Integer> frequencyCount=tree.getFrequencyCount();
 		float sum=(float)tree.getTotalFeatureSetCount();
 
-		for(Entry<Word,Integer> en: frequencyCount.entrySet()){
-			Word w=en.getKey();
+		for(Entry<ObservedFeatureOccurrence,Integer> en: frequencyCount.entrySet()){
+			ObservedFeatureOccurrence w=en.getKey();
 			int ID=w.getFeatureID();
-			Word ssfeature=featureMap.get(ID);
+			ObservedFeatureOccurrence ssfeature=featureMap.get(ID);
 			ParentChildRelation vfeature=(ParentChildRelation) featureManager.getFeatureFromLabel(ssfeature.getFeatureID());
 			int occurrence=ssfeature.getOccurrence();
 			BasisFeature bfeature=(BasisFeature) featureManager.getFeatureFromLabel(vfeature.getParentLabel());
@@ -74,16 +74,16 @@ public class SummaryVisualizer {
 
 	}
 
-	public SummaryVisualizer (float threshold,int clusterID,FP_InferenceTree tree){
+	public SummaryVisualizer (float threshold,int clusterID,FeatureVector_Trie tree){
 		this.threshold=threshold;
 		this.clusterID=clusterID;
 		this.sectionMap=new HashMap<String,ContentWithOpacity>();
 		this.KL=tree.getNaiveSummaryError();
-		HashMap<Word,Integer> frequencyCount=tree.getFrequencyCount();
+		HashMap<ObservedFeatureOccurrence,Integer> frequencyCount=tree.getFrequencyCount();
 		float sum=(float)tree.getTotalFeatureSetCount();
 
-		for(Entry<Word,Integer> en: frequencyCount.entrySet()){
-			Word sfeature=en.getKey();
+		for(Entry<ObservedFeatureOccurrence,Integer> en: frequencyCount.entrySet()){
+			ObservedFeatureOccurrence sfeature=en.getKey();
 			ParentChildRelation vfeature=(ParentChildRelation) featureManager.getFeatureFromLabel(sfeature.getFeatureID());
 			int occurrence=sfeature.getOccurrence();
 

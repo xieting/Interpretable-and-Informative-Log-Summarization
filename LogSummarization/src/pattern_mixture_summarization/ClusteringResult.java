@@ -2,144 +2,126 @@ package pattern_mixture_summarization;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Scanner;
-
+import data_structure.GlobalVariables;
 import feature_management.FeatureVector;
 
 public class ClusteringResult {
 	HashMap<Integer,Cluster> clusterMap=new HashMap<Integer,Cluster>();//data may be essentially stored in its children
-    int totalVerbosity=0;
-    double averageVerbosity=0;
-    double Error=0;
-	
+	int totalVerbosity=0;
+	double averageVerbosity=0;
+	double Error=0;
+
 	public ClusteringResult (String featureVectorsPath, String multiplicityPath, String clusterAssignmentPath){
-		BufferedReader featurebr;
-		Scanner multiplicitybr,clusterAssignmentbr;
-		try {
-			featurebr=new BufferedReader(new FileReader(featureVectorsPath));
-			multiplicitybr=new Scanner(new File(multiplicityPath)).useDelimiter("[\\r\\n,\\s]+");
-			clusterAssignmentbr=new Scanner(new File(clusterAssignmentPath)).useDelimiter("[\\r\\n,\\s]+");
-			String line;
-			while ((line=featurebr.readLine())!=null){
-				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
-				Integer multiplicity=Integer.parseInt(multiplicitybr.next());
-				Integer clusterID=Integer.parseInt(clusterAssignmentbr.next());
-				Cluster targetCluster=this.clusterMap.get(clusterID);
-				if(targetCluster==null){
-					targetCluster=new Cluster(clusterID);
-					this.clusterMap.put(clusterID, targetCluster);
+		ArrayList<Integer> multiplicities = null; 
+		ArrayList<Integer> clusterIDs=new ArrayList<Integer>();
+		if (multiplicityPath!=null){
+			multiplicities=new ArrayList<Integer>();
+			try {
+				Scanner multiplicitybr = new Scanner(new File(multiplicityPath)).useDelimiter(GlobalVariables.inputDataDelimiter);
+				while(multiplicitybr.hasNextInt()){
+					multiplicities.add(multiplicitybr.nextInt());
 				}
-				targetCluster.consumeFeatureVector(vector, multiplicity);
+				multiplicitybr.close();
+			} catch (FileNotFoundException e) {
+				e.printStackTrace();
 			}
-			featurebr.close();
-			multiplicitybr.close();
-			clusterAssignmentbr.close();
-			//build clusters
-			ArrayList<Integer> verbosityList=new ArrayList<Integer>();
-			ArrayList<Double> errorList=new ArrayList<Double>();
-			ArrayList<Integer> numOfVectorsList=new ArrayList<Integer>();
-			int numOfVectorsSum=0;
-			for (Cluster c: this.clusterMap.values()){
-				c.buildCluster();
-				int verbosity=c.getVerbosity();
-				verbosityList.add(verbosity);
-				//total verbosity
-				this.totalVerbosity+=verbosity;
-				
-				errorList.add(c.getError());
-				
-				int numVectors=c.getTotalNumOfVectors();
-				numOfVectorsList.add(numVectors);
-				numOfVectorsSum+=numVectors;
-			}
-			ArrayList<Double> weights=new ArrayList<Double>();
-			for (int i=0;i<numOfVectorsList.size();i++){
-				weights.add((double)numOfVectorsList.get(i)/(double)numOfVectorsSum);
-			}
-			
-			for (int i=0;i<verbosityList.size();i++){
-				//average verbosity
-				this.averageVerbosity+=verbosityList.get(i)*weights.get(i);
-				//error
-				this.Error+=errorList.get(i)*weights.get(i);
-			}
-	        			
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
-	}
-	
-	public ClusteringResult (String featureVectorsPath,String clusterAssignmentPath){
-		BufferedReader featurebr,clusterAssignmentbr;
-		try {
-			featurebr=new BufferedReader(new FileReader(featureVectorsPath));
-			clusterAssignmentbr=new BufferedReader(new FileReader(clusterAssignmentPath));
+
+		try{
+			BufferedReader featurebr=new BufferedReader(new FileReader(featureVectorsPath));		
+			Scanner clusterAssignmentbr=new Scanner(new File(clusterAssignmentPath)).useDelimiter(GlobalVariables.inputDataDelimiter);
 			String line;
+			int index=0;
 			while ((line=featurebr.readLine())!=null){
 				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
-				Integer clusterID=Integer.parseInt(clusterAssignmentbr.readLine());
-				Cluster targetCluster=this.clusterMap.get(clusterID);
-				if(targetCluster==null){
-					targetCluster=new Cluster(clusterID);
-					this.clusterMap.put(clusterID, targetCluster);
+				if (!vector.isEmpty()){
+					Integer clusterID=Integer.parseInt(clusterAssignmentbr.next());
+					clusterIDs.add(clusterID);
+					Cluster targetCluster=this.clusterMap.get(clusterID);
+					if(targetCluster==null){
+						targetCluster=new Cluster(clusterID);
+						this.clusterMap.put(clusterID, targetCluster);
+					}
+					if (multiplicities!=null)
+						targetCluster.registerFeatureVector(vector, multiplicities.get(index));
+					else
+						targetCluster.registerFeatureVector(vector);
+					index++;
 				}
-				targetCluster.consumeFeatureVector(vector);
 			}
 			featurebr.close();
 			clusterAssignmentbr.close();
-			//build clusters
-			ArrayList<Integer> verbosityList=new ArrayList<Integer>();
-			ArrayList<Double> errorList=new ArrayList<Double>();
-			ArrayList<Integer> numOfVectorsList=new ArrayList<Integer>();
-			int numOfVectorsSum=0;
-			for (Cluster c: this.clusterMap.values()){
-				c.buildCluster();
-				int verbosity=c.getVerbosity();
-				verbosityList.add(verbosity);
-				//total verbosity
-				this.totalVerbosity+=verbosity;
-				
-				errorList.add(c.getError());
-				
-				int numVectors=c.getTotalNumOfVectors();
-				numOfVectorsList.add(numVectors);
-				numOfVectorsSum+=numVectors;
+
+			//build clusters by consuming feature vectors
+			featurebr=new BufferedReader(new FileReader(featureVectorsPath));		
+			index=0;
+			while ((line=featurebr.readLine())!=null){
+				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
+				if (!vector.isEmpty()){
+					int clusterID=clusterIDs.get(index);
+					Cluster targetCluster=this.clusterMap.get(clusterID);
+					if (multiplicities!=null)
+						targetCluster.consumeFeatureVector(vector, multiplicities.get(index));
+					else
+						targetCluster.consumeFeatureVector(vector);
+					index++;
+				}
 			}
-			ArrayList<Double> weights=new ArrayList<Double>();
-			for (int i=0;i<numOfVectorsList.size();i++){
-				weights.add((double)numOfVectorsList.get(i)/(double)numOfVectorsSum);
-			}
-			
-			for (int i=0;i<verbosityList.size();i++){
-				//average verbosity
-				this.averageVerbosity+=verbosityList.get(i)*weights.get(i);
-				//error
-				this.Error+=errorList.get(i)*weights.get(i);
-			}
-			
-		} catch (IOException e) {
+			featurebr.close();	
+		}
+		catch(IOException e){
 			e.printStackTrace();
 		}
+
+		//get total/average verbosity and Error
+		ArrayList<Double> weights=new ArrayList<Double>();
+		ArrayList<Integer> verbosityList=new ArrayList<Integer>();
+		ArrayList<Double> errorList=new ArrayList<Double>();
+		ArrayList<Integer> numOfVectorsList=new ArrayList<Integer>();
+		int numOfVectorsSum=0;
+		for (Cluster c: this.clusterMap.values()){				
+			int verbosity=c.getVerbosity();
+			verbosityList.add(verbosity);
+			//total verbosity
+			this.totalVerbosity+=verbosity;
+			errorList.add(c.getError());
+			int numVectors=c.getTotalNumOfVectors();
+			numOfVectorsList.add(numVectors);
+			numOfVectorsSum+=numVectors;
+		}
+
+		for (int i=0;i<numOfVectorsList.size();i++){
+			weights.add((double)numOfVectorsList.get(i)/(double)numOfVectorsSum);
+		}
+
+		for (int i=0;i<verbosityList.size();i++){
+			//average verbosity
+			this.averageVerbosity+=verbosityList.get(i)*weights.get(i);
+			//error
+			this.Error+=errorList.get(i)*weights.get(i);
+		}
 	}
-	
+
 	public int getTotalVerbosity(){
 		return this.totalVerbosity;
 	}
-	
+
 	public double getError(){
 		return this.Error;
 	}
-	
+
 	public double getAverageVerbosity(){
 		return this.averageVerbosity;
 	}
-	
+
 	public HashMap<Integer,Cluster> getClusters(){
 		return this.clusterMap;
 	}
-	
+
 }

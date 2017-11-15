@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map.Entry;
+
 import java.util.Set;
 
 /**
@@ -86,31 +87,36 @@ public class FeatureVector{
 
 	public int getSize(){
 		int sum=0;
-			for (Integer occur: this.labelMap.values())
-				sum+=occur;
+		for (Integer occur: this.labelMap.values())
+			sum+=occur;
 		return sum;
 	}
-	
+
 	public int getDistinctSize(){
 		return this.getDistinctFeatures().size();
 	}
 
-	public static FeatureVector readFeatureVectorFromFormattedString(String line){
-		//parse into feature vector
-		String tokens[]=line.split("\\s+|,");
-		int size=Integer.parseInt(tokens[0]);
-		//sanity check
-		if(size!=tokens.length-1)
-			System.out.println("featureVector length does not match the stored record, please check.");
+	public static FeatureVector readFeatureVectorFromFormattedString(String line){          
+		try{
+			FeatureVector featurevector=new FeatureVector();
+			//parse into feature vector
+			String tokens[]=line.split("\\s+|,");
+			int size=Integer.parseInt(tokens[0]);
+			//sanity check
+			if(size!=tokens.length-1)
+				System.out.println("featureVector length does not match the stored record, please check.");
 
-		FeatureVector featurevector=new FeatureVector();
-		for (int i=1;i<tokens.length;i++){
-			String innertokens[]=tokens[i].split(":");
-			int label=Integer.parseInt(innertokens[0]);
-			int occur=Integer.parseInt(innertokens[1]);
-			featurevector.addFeatureWithOccurrence(label, occur);
+			for (int i=1;i<tokens.length;i++){
+				String innertokens[]=tokens[i].split(":");
+				int label=Integer.parseInt(innertokens[0]);
+				int occur=Integer.parseInt(innertokens[1]);
+				featurevector.addFeatureWithOccurrence(label, occur);
+			}
+			return featurevector;  
 		}
-		return featurevector;    	
+		catch(NumberFormatException e){
+			return new FeatureVector();
+		}  	
 	}
 
 	public int size(){
@@ -179,7 +185,7 @@ public class FeatureVector{
 		}
 		return intersec;
 	}
-	
+
 	public static FeatureVector setIntersection(FeatureVector left, FeatureVector right){
 		FeatureVector intersec=new FeatureVector();
 		int leftlength=left.size();
@@ -198,14 +204,14 @@ public class FeatureVector{
 			for(Integer ID: leftfeatures){
 				int rightoccur=right.getFeatureOccurrence(ID);
 				int leftoccur=left.getFeatureOccurrence(ID);
-			
+
 				if(rightoccur==leftoccur)
 					intersec.addFeatureWithOccurrence(ID, leftoccur);
 			}
 		}
 		return intersec;
 	}
-	
+
 
 	/**
 	 * Set Union of two feature vectors
@@ -275,5 +281,6 @@ public class FeatureVector{
 		}
 		return line.substring(1);
 	}
-    
+
+
 }

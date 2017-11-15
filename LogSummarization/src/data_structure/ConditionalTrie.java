@@ -17,18 +17,18 @@ import java.util.Map.Entry;
  * @author Ting
  *
  */
-public class ConditionalTree {
+public class ConditionalTrie {
 	private int supportLower;
 	private int FPTotalCount;	
 	private double entropyLower;
-	private HashMap<Word,Integer> totalFrequencyMap=new HashMap<Word,Integer>();//keep track of totalFrequency of all 1-item sets
-	private ConditionalTree parent;
-	private Word conditionedItem;//the item that this conditional tree is conditioned on
-	private FP_InferenceTree fptree;
+	private HashMap<ObservedFeatureOccurrence,Integer> totalFrequencyMap=new HashMap<ObservedFeatureOccurrence,Integer>();//keep track of totalFrequency of all 1-item sets
+	private ConditionalTrie parent;
+	private ObservedFeatureOccurrence conditionedItem;//the item that this conditional tree is conditioned on
+	private FeatureVector_Trie fptree;
 	private int totalCount;
-	private HashMap<Integer,HashMap<Integer,Word>> itemMap;//its own sortable item map two keys itemID+occurrence
+	private HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap;//its own sortable item map two keys itemID+occurrence
 	private double hconfidence;
-	private HashMap<Word,Integer> rootTotalFrequencyMap;
+	private HashMap<ObservedFeatureOccurrence,Integer> rootTotalFrequencyMap;
 	private int maxCount=-1;
 	
 	/**
@@ -37,16 +37,13 @@ public class ConditionalTree {
 	 * @param content
 	 * @param conditionedItem
 	 */
-	public ConditionalTree(int supportLower,int FPTotalCount,double entropyLower,Word conditionedItem,ConditionalTree parent,int totalCount){
+	public ConditionalTrie(int supportLower,int FPTotalCount,double entropyLower,ObservedFeatureOccurrence conditionedItem,ConditionalTrie parent,int totalCount){
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
         this.entropyLower=entropyLower;
 		this.parent=parent;
 		this.conditionedItem=conditionedItem;    	
-		String extension="_"+conditionedItem.toString();
-		String path=parent.getItsFPTree().getPath()+extension;
-		String dumppath=parent.getItsFPTree().getDumpPath()+extension;
-		this.fptree=new FP_InferenceTree(path,dumppath);
+		this.fptree=new FeatureVector_Trie();
 		this.totalCount=totalCount;
 		this.itemMap=parent.itemMap;
 	}
@@ -57,17 +54,14 @@ public class ConditionalTree {
 	 * @param content
 	 * @param conditionedItem
 	 */
-	public ConditionalTree(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,Word conditionedItem,ConditionalTree parent,int totalCount){
+	public ConditionalTrie(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,ObservedFeatureOccurrence conditionedItem,ConditionalTrie parent,int totalCount){
 		this.hconfidence=hconfidence;
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
 		this.entropyLower=entropyLower;
 		this.parent=parent;
 		this.conditionedItem=conditionedItem;    	
-		String extension="_"+conditionedItem.toString();
-		String path=parent.getItsFPTree().getPath()+extension;
-		String dumppath=parent.getItsFPTree().getDumpPath()+extension;
-		this.fptree=new FP_InferenceTree(path,dumppath);
+		this.fptree=new FeatureVector_Trie();
 		this.totalCount=totalCount;
 		this.itemMap=parent.itemMap;
 		this.rootTotalFrequencyMap=parent.rootTotalFrequencyMap;
@@ -81,17 +75,17 @@ public class ConditionalTree {
 	
 	}
 
-	public ConditionalTree(int supportLower,int FPTotalCount,double entropyLower,FP_InferenceTree fptree,HashMap<Integer,HashMap<Integer,Word>> itemMap){
+	public ConditionalTrie(int supportLower,int FPTotalCount,double entropyLower,FeatureVector_Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
 		this.entropyLower=entropyLower;
 		this.fptree=fptree;
 		//update its totalFrequency map
-		HashMap<Word, HashSet<FPNode>> trackMap=fptree.getTrackMap();
-		for (Entry<Word, HashSet<FPNode>> en: trackMap.entrySet()){
-			Word sitem=en.getKey();
+		HashMap<ObservedFeatureOccurrence, HashSet<TrieNode>> trackMap=fptree.getTrackMap();
+		for (Entry<ObservedFeatureOccurrence, HashSet<TrieNode>> en: trackMap.entrySet()){
+			ObservedFeatureOccurrence sitem=en.getKey();
 			int count=0;
-			for (FPNode node: en.getValue()){
+			for (TrieNode node: en.getValue()){
 				count+=node.getCount();
 			}
 			this.totalFrequencyMap.put(sitem, count);
@@ -101,18 +95,18 @@ public class ConditionalTree {
 		this.itemMap=itemMap;
 	}
 	
-	public ConditionalTree(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,FP_InferenceTree fptree,HashMap<Integer,HashMap<Integer,Word>> itemMap){
+	public ConditionalTrie(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,FeatureVector_Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
 		this.hconfidence=hconfidence;
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
 		this.entropyLower=entropyLower;
 		this.fptree=fptree;
 		//update its totalFrequency map
-		HashMap<Word, HashSet<FPNode>> trackMap=fptree.getTrackMap();
-		for (Entry<Word, HashSet<FPNode>> en: trackMap.entrySet()){
-			Word sitem=en.getKey();
+		HashMap<ObservedFeatureOccurrence, HashSet<TrieNode>> trackMap=fptree.getTrackMap();
+		for (Entry<ObservedFeatureOccurrence, HashSet<TrieNode>> en: trackMap.entrySet()){
+			ObservedFeatureOccurrence sitem=en.getKey();
 			int count=0;
-			for (FPNode node: en.getValue()){
+			for (TrieNode node: en.getValue()){
 				count+=node.getCount();
 			}
 			this.totalFrequencyMap.put(sitem, count);
@@ -124,16 +118,16 @@ public class ConditionalTree {
 		this.maxCount=-1;
 	}
 
-	public ConditionalTree getParent(){
+	public ConditionalTrie getParent(){
 		return this.parent;
 	}
 
 
-	public Word getConditionedItem(){
+	public ObservedFeatureOccurrence getConditionedItem(){
 		return this.conditionedItem;
 	}
 
-	public FP_InferenceTree getItsFPTree(){
+	public FeatureVector_Trie getItsFPTree(){
 		return this.fptree;
 	}
 
@@ -144,10 +138,10 @@ public class ConditionalTree {
 	 * a must-have step before using function pruneTree()
 	 * @param path
 	 */
-	private void feedInFPPath(FPPath path){
+	private void feedInFPPath(TriePath path){
 		//accumulate the total frequency of each sortable item met in the path
-		for(FPNode node:path.getList()){
-			Word sitem=node.getWord();
+		for(TrieNode node:path.getList()){
+			ObservedFeatureOccurrence sitem=node.getWord();
 			Integer oldcount=this.totalFrequencyMap.get(sitem);
 			if(oldcount==null)
 				this.totalFrequencyMap.put(sitem,0+node.getCount());
@@ -166,11 +160,11 @@ public class ConditionalTree {
 		HashMap<Pattern,Integer>  result=new HashMap<Pattern,Integer>();
 		
 		//first we get a  white list of items
-		HashMap<Word,Integer> whitelist=new HashMap<Word,Integer>();
-		List<Word> sortedList=new ArrayList<Word>();
+		HashMap<ObservedFeatureOccurrence,Integer> whitelist=new HashMap<ObservedFeatureOccurrence,Integer>();
+		List<ObservedFeatureOccurrence> sortedList=new ArrayList<ObservedFeatureOccurrence>();
 		
-		for(Entry<Word, HashSet<FPNode>> en: this.fptree.getTrackMap().entrySet()){
-			Word sitem=en.getKey();
+		for(Entry<ObservedFeatureOccurrence, HashSet<TrieNode>> en: this.fptree.getTrackMap().entrySet()){
+			ObservedFeatureOccurrence sitem=en.getKey();
 			int count=this.totalFrequencyMap.get(sitem);
 			int maxC=Math.max(this.maxCount, this.rootTotalFrequencyMap.get(sitem));
 			double maxCC=(double)maxC;
@@ -188,13 +182,13 @@ public class ConditionalTree {
 		
 		//starting from the tail item
 		while(!sortedList.isEmpty()){
-			Word tailItem=sortedList.get(sortedList.size()-1);
+			ObservedFeatureOccurrence tailItem=sortedList.get(sortedList.size()-1);
 		   //conditioned on the tailItem and build a conditional tree
-		    ConditionalTree childTree=new ConditionalTree(this.hconfidence,this.supportLower,this.FPTotalCount,this.entropyLower,tailItem,this,whitelist.get(tailItem)); 
+		    ConditionalTrie childTree=new ConditionalTrie(this.hconfidence,this.supportLower,this.FPTotalCount,this.entropyLower,tailItem,this,whitelist.get(tailItem)); 
 		    //track the nodes of this tail item
-		   HashSet<FPNode> nodeset=this.fptree.getTrackMap().get(tailItem);
-		    for (FPNode node: nodeset){
-		    	FPPath path=this.fptree.stripPathEndOnNodeExcluding(node);
+		   HashSet<TrieNode> nodeset=this.fptree.getTrackMap().get(tailItem);
+		    for (TrieNode node: nodeset){
+		    	TriePath path=this.fptree.stripPathEndOnNodeExcluding(node);
 		    	//feed the child with the path
 		    	childTree.feedInFPPath(path);
 		    }
@@ -212,13 +206,13 @@ public class ConditionalTree {
 			for (Entry<Pattern,Integer> en: result.entrySet()){
 				Pattern pattern=en.getKey();
 				Pattern newpattern=new Pattern(pattern);
-				newpattern.addToSet(this.conditionedItem,this.itemMap);
+				newpattern.addToSet(this.conditionedItem.getFeatureID(),this.conditionedItem.getOccurrence(),this.itemMap);
 				newresult.put(newpattern, en.getValue());
 			}
 			//its condition itself is a valid pattern, add it in
 			if(newresult.isEmpty()){
 			Pattern mypattern=new Pattern();
-			mypattern.addToSet(this.conditionedItem,this.itemMap);
+			mypattern.addToSet(this.conditionedItem.getFeatureID(),this.conditionedItem.getOccurrence(),this.itemMap);
 			newresult.put(mypattern, this.totalCount);
 			}
 			
