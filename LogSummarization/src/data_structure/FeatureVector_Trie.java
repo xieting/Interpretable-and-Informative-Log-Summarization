@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Scanner;
 import java.util.Map.Entry;
@@ -15,6 +16,9 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import feature_management.FeatureVector;
+import feature_management.GlobalVariables;
+import pattern_mixture_summarization.NaiveSummary;
+import pattern_mixture_summarization.NaiveSummaryEntry;
 
 
 
@@ -41,7 +45,7 @@ public class FeatureVector_Trie {
 	private int numOfLeaves=-1;
 	private String featurevectorPath=null;
 	private String multiplicityPath=null;
-	
+
 	public FeatureVector_Trie(){
 		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>();
 		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> ();
@@ -51,12 +55,20 @@ public class FeatureVector_Trie {
 		this.totalcount=0;
 		this.distinctcount=0;
 	}
-	
+
 	public FeatureVector_Trie(String featureVectorPath,String multiplicityPath){
+		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>();
+		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> ();
+		ObservedFeatureOccurrence feature = null;
+		this.root=new TrieNode(feature);
+		this.count=0;
+		this.totalcount=0;
+		this.distinctcount=0;
+
 		this.featurevectorPath=featureVectorPath;
 		this.multiplicityPath=multiplicityPath;
 		ArrayList<Integer> multiplicities=new ArrayList<Integer>();
-		
+
 		//register feature vectors using one linear scan over the data
 		try {
 			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
@@ -65,9 +77,9 @@ public class FeatureVector_Trie {
 			while((line=br.readLine())!=null){
 				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
 				if(!vector.isEmpty()){
-				Integer multiplicity=multiplicitybr.nextInt();
-				multiplicities.add(multiplicity);
-				this.registerFeatureVector(vector, multiplicity);
+					Integer multiplicity=multiplicitybr.nextInt();
+					multiplicities.add(multiplicity);
+					this.registerFeatureVector(vector, multiplicity);
 				}
 			}
 			multiplicitybr.close();
@@ -75,7 +87,7 @@ public class FeatureVector_Trie {
 		} catch ( IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		//after registration, use one more linear scan to consume and build the trie
 		try {
 			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
@@ -92,9 +104,9 @@ public class FeatureVector_Trie {
 		} catch ( IOException e) {
 			e.printStackTrace();
 		}
-		
+
 	}
-	
+
 	public FeatureVector_Trie(String featureVectorPath){
 		this.featurevectorPath=featureVectorPath;
 		//register feature vectors using one linear scan over the data
@@ -104,14 +116,14 @@ public class FeatureVector_Trie {
 			while((line=br.readLine())!=null){
 				FeatureVector vector=FeatureVector.readFeatureVectorFromFormattedString(line);
 				if(!vector.isEmpty()){
-				this.registerFeatureVector(vector);
+					this.registerFeatureVector(vector);
 				}
 			}
 			br.close();
 		} catch ( IOException e) {
 			e.printStackTrace();
 		}
-		
+
 		//after registration, use one more linear scan to consume and build the trie
 		try {
 			BufferedReader br=new BufferedReader(new FileReader(featureVectorPath));
@@ -178,7 +190,6 @@ public class FeatureVector_Trie {
 				Integer oldCount=this.instanceMap.get(start);
 				if (oldCount==null)
 					oldCount=0;
-
 				this.instanceMap.put(start,oldCount+tailCount);
 			}
 		}
@@ -197,7 +208,7 @@ public class FeatureVector_Trie {
 			node=P.pullFirst();
 			currentnode.addChild(node);			
 			//register this node in track map whenever a new node is added
-			ObservedFeatureOccurrence sfeature=node.getWord();
+			ObservedFeatureOccurrence sfeature=node.getObservedFeatureOccurrence();
 			if(sfeature!=null){
 				HashSet<TrieNode> list=this.trackMap.get(sfeature);
 				if(list==null){
@@ -228,10 +239,10 @@ public class FeatureVector_Trie {
 		if (!P.getList().isEmpty()){
 			TrieNode targetNode=P.getFirst();
 			HashMap<Integer, HashMap<Integer,TrieNode>> chMap=root.getChildren();
-			HashMap<Integer,TrieNode> map=chMap.get(targetNode.getWord().getFeatureID());
+			HashMap<Integer,TrieNode> map=chMap.get(targetNode.getObservedFeatureOccurrence().getFeatureID());
 			TrieNode nextnode=null;
 			if (map!=null)
-				nextnode=map.get(targetNode.getWord().getOccurrence());
+				nextnode=map.get(targetNode.getObservedFeatureOccurrence().getOccurrence());
 
 			if (nextnode==null){
 				return root;
@@ -275,7 +286,7 @@ public class FeatureVector_Trie {
 				}
 			}
 
-			if(count>root.getCount()&&root.getWord()!=null)
+			if(count>root.getCount()&&root.getObservedFeatureOccurrence()!=null)
 				return false;
 		}
 
@@ -290,7 +301,7 @@ public class FeatureVector_Trie {
 				HashMap<Integer, TrieNode> featuremap=en.getValue();
 				for(Entry<Integer,TrieNode> enn: featuremap.entrySet()){
 					TrieNode node=enn.getValue();
-					ObservedFeatureOccurrence sfeature=node.getWord();
+					ObservedFeatureOccurrence sfeature=node.getObservedFeatureOccurrence();
 					if(!this.trackMap.get(sfeature).contains(node))
 						return false;
 					else {
@@ -303,7 +314,7 @@ public class FeatureVector_Trie {
 		return true;
 	}
 
-	private boolean validateInstanceMap(){
+	public boolean validateInstanceMap(){
 		int sum=0;
 		for (Integer count:this.instanceMap.values())
 			sum+=count;
@@ -342,29 +353,28 @@ public class FeatureVector_Trie {
 		return num;
 	}
 
+
 	/**
 	 * a naive summary is simply a bag of features mapped with their marginals 
 	 * @return
 	 */
-	public LinkedHashMap<ObservedFeatureOccurrence,Double> getNaiveSummary(){
+	public NaiveSummary getNaiveSummary(){
 
-		LinkedHashMap<ObservedFeatureOccurrence,Double> naiveSummary=new LinkedHashMap<ObservedFeatureOccurrence,Double>();
+		ArrayList<NaiveSummaryEntry> naiveSummary=new ArrayList<NaiveSummaryEntry>();
 		for (Entry<Integer, TreeMap<Integer, Integer>> en: this.getFeatureDistribution().entrySet()) {
 			int featureID=en.getKey();
 			for (Entry<Integer, Integer> enn: en.getValue().entrySet()){
 				int occurrence=enn.getKey();
 				int frequency=enn.getValue();
 				if(occurrence!=0){
-					double marginal=(double)frequency/(double)this.count;
-					ObservedFeatureOccurrence w=this.observedFeatureOccurrenceMap.get(featureID).get(occurrence);
-					if(w==null){
-						System.out.println("cannot find word for featureID "+featureID+" occurrence "+occurrence +". Please check.");
-					}
-					naiveSummary.put(w, marginal);
+					double marginal=(double)frequency/(double)this.count;					
+					naiveSummary.add(new NaiveSummaryEntry(featureID,occurrence,marginal));
 				}
 			}
 		}
-		return naiveSummary;		
+		Collections.sort(naiveSummary);
+		NaiveSummary summary=new NaiveSummary(naiveSummary,this.getNaiveSummaryError());
+		return summary;		
 	}
 
 	private int getNodeNumber(TrieNode root){
@@ -413,7 +423,7 @@ public class FeatureVector_Trie {
 		TrieNode parent=node.getParent();
 		int nodeCount=node.getCount();
 
-		while(parent!=null&&parent.getWord()!=null){
+		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
 			//copy this node
 			TrieNode parentnode=new TrieNode(parent);
 			parentnode.addCount(nodeCount);
@@ -433,11 +443,12 @@ public class FeatureVector_Trie {
 		this.distinctcount=0;
 	}
 
+	private int errorCap1=0;
 	/**
 	 * register a feature vector in this tree
 	 */
 	public void registerFeatureVector(FeatureVector vector){
-		
+
 		Pattern pattern=this.featurevector2pattern(vector);
 		if (pattern.size()>0){										
 			this.count++;
@@ -449,11 +460,12 @@ public class FeatureVector_Trie {
 				observedFeatureOccurrence.addContribution(contrib);
 			}
 		}
-		else{
-			System.out.println("empty feature vector consumed");
+		else if (errorCap1==0){
+			System.out.println("empty feature vector registered");
+			errorCap1++;
 		}		
 	}
-	
+
 	/**
 	 * register a feature vector in this tree
 	 */
@@ -469,15 +481,16 @@ public class FeatureVector_Trie {
 				observedFeatureOccurrence.addContribution(contrib*multiplicity);
 			}
 		}
-		else{
-			System.out.println("empty feature vector consumed");
+		else if (errorCap1==0){
+			System.out.println("empty feature vector registered");
+			errorCap1++;
 		}		
 	}
-	
+
 	public void consumeFeatureVector(FeatureVector vector,int multiplicity){
 		if (!vector.isEmpty()){
-		Pattern p=this.featurevector2pattern(vector);
-	    ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
+			Pattern p=this.featurevector2pattern(vector);
+			ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
 			//sort into sequence to form a path
 			Collections.sort(qlist);
 			TriePath triepath=new TriePath();
@@ -489,11 +502,11 @@ public class FeatureVector_Trie {
 			this.consume(triepath);		
 		}
 	}
-	
+
 	public void consumeFeatureVector(FeatureVector vector){
 		if (!vector.isEmpty()){
-		Pattern p=this.featurevector2pattern(vector);
-	    ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
+			Pattern p=this.featurevector2pattern(vector);
+			ArrayList<ObservedFeatureOccurrence> qlist=new ArrayList<ObservedFeatureOccurrence>(p.getObservedFeatureOccurrenceSet());
 			//sort into sequence to form a path
 			Collections.sort(qlist);
 			TriePath triepath=new TriePath();
@@ -504,7 +517,7 @@ public class FeatureVector_Trie {
 			this.consume(triepath);		
 		}
 	}
-	
+
 	/**
 	 * returns the number of feature sets that contains the feature vector
 	 * @param vector
@@ -527,7 +540,7 @@ public class FeatureVector_Trie {
 					int lastUnmatchedInd=featurelist.size()-2;
 					for(int i=startNode.getDepth();i>0;i--){
 						ObservedFeatureOccurrence targetFeature=featurelist.get(lastUnmatchedInd);	
-						if(targetFeature.equals(startNode.getWord())){
+						if(targetFeature.equals(startNode.getObservedFeatureOccurrence())){
 							lastUnmatchedInd--;
 							if(lastUnmatchedInd==-1){
 								break;
@@ -570,11 +583,18 @@ public class FeatureVector_Trie {
 				ObservedFeatureOccurrence currentWord=featurelist.get(i);
 				int featureID=currentWord.getFeatureID();
 				int occurrence=currentWord.getOccurrence();
-				TrieNode nextMatch=map.get(featureID).get(occurrence);
-				if (nextMatch==null)
+				HashMap<Integer,TrieNode> submap=map.get(featureID);
+				//if no such feature in children list
+				if(submap==null)
 					return 0;
-				else
-					currentMatch=nextMatch;
+				else {
+					TrieNode nextMatch=submap.get(occurrence);
+					//if no such occurrence
+					if (nextMatch==null)
+						return 0;
+					else
+						currentMatch=nextMatch;
+				}
 			}
 			//minus the count of its children and get the count
 			int childsum=0;
@@ -598,50 +618,26 @@ public class FeatureVector_Trie {
 	 * @return
 	 */
 	private boolean validateProbabilityComputation(){
-		int sumcount=0;
-		HashMap<TrieNode,Integer> instanceMap=this.instanceMap;
 
 		for(Entry<TrieNode,Integer> en:instanceMap.entrySet()){  
-			int purecount=en.getValue();	
-			TrieNode n=en.getKey();
-			FeatureVector vector=new FeatureVector();
-			TrieNode startNode=n;
-			for(int i=n.getDepth();i>0;i--){
-				ObservedFeatureOccurrence sfeature=startNode.getWord();
-				int ID=sfeature.getFeatureID();
-				int occur=sfeature.getOccurrence();
-				FeatureVector piece=new FeatureVector();
-				piece.addFeatureWithOccurrence(ID, occur);
-				vector=FeatureVector.setUnion(vector, piece);
-				startNode=startNode.getParent();
-			}
-			int c=1;
-			startNode=n;
-			while(startNode.getParent()!=null&&startNode.getParent().getWord()!=null){
-				startNode=startNode.getParent();
-				c++;
-			}
-			if(c!=n.getDepth()){
-				System.out.println("path length does not match n depth.");
-				return false;
-			}
+			int multiplicity=en.getValue();	
+			TrieNode tail=en.getKey();
+
+			FeatureVector vector=this.stripPathFromNode(tail);
+
 			int mcount=this.getCountOfContainingFeatureVector(vector);
-			if(mcount<n.getCount()||mcount>this.count){
-				System.out.println("marginal probability computed invalid.");
+			if(mcount<tail.getCount()||mcount>this.count){
+				System.out.println("marginal probability computed invalid, computed "+mcount);
 				return false;
 			}
 			int count=this.getCountOfExactlyMatchingFeatureVector(vector);
-			if( count!=purecount){
-				System.out.println("joint probability computed invalid. "+" Original Value "+purecount+" computed "+count);
+			if( count!=multiplicity){
+				System.out.println("joint probability computed invalid. "+" Original Value "+multiplicity+" computed "+count);
 				return false;
-			}					
-			sumcount+=purecount;									
-
+			}														
 		}
-		if(sumcount!=this.count)
-			System.out.println("sum of feature sets does not match, summed by leaves "+sumcount+" stored "+this.count);
-
-		return sumcount==this.count;
+		//otherwise the test succeed
+		return true;
 	}
 
 	/**
@@ -685,79 +681,116 @@ public class FeatureVector_Trie {
 	 * @param right
 	 * @return
 	 */
-	public static double getNaiveSummaryDistance(FeatureVector_Trie left,FeatureVector_Trie right){
-		//TODO
+	public static double getPredictedNaiveSummaryEntropy(FeatureVector_Trie left,FeatureVector_Trie right,double probThreshold){
 		double divergence=0;
-		HashMap<Integer,TreeMap<Integer,Integer>> leftNaiveSummary=left.getFeatureDistribution();
-		HashMap<Integer,TreeMap<Integer,Integer>> rightNaiveSummary=right.getFeatureDistribution();		
-		//search for overlap	
-		for (Entry <Integer,TreeMap<Integer,Integer>> en: leftNaiveSummary.entrySet()){
+		double leftEntropy=0;
+		double rightEntropy=0;
+
+		int leftCount=left.getTotalFeatureSetCount();
+	    int rightCount=right.getTotalFeatureSetCount();
+		//int leftCount=1;
+		//int rightCount=1;
+		double totalCount=leftCount+rightCount;
+
+		HashMap<Integer,TreeMap<Integer,Integer>> leftDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
+		for (Entry<Integer,TreeMap<Integer,Integer>> en:left.getFeatureDistribution().entrySet())
+			if(!shouldSkip(en.getValue(),leftCount,probThreshold))
+			leftDistribution.put(en.getKey(), en.getValue());
+			
+		HashMap<Integer,TreeMap<Integer,Integer>> rightDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
+		for (Entry<Integer,TreeMap<Integer,Integer>> en:right.getFeatureDistribution().entrySet())
+			if(!shouldSkip(en.getValue(),rightCount,probThreshold))
+			rightDistribution.put(en.getKey(), en.getValue());	
+		
+		//search for overlap
+		TreeMap<Integer,Integer> rightZeroDistri=new TreeMap<Integer,Integer>();
+		rightZeroDistri.put(0, rightCount);
+		
+		for (Entry <Integer,TreeMap<Integer,Integer>> en: leftDistribution.entrySet()){
 			int ID=en.getKey();
-			TreeMap<Integer,Integer> leftdistribution=en.getValue();
-			TreeMap<Integer,Integer> rightdistribution=rightNaiveSummary.get(ID);
-			//if right does not contain the feature, assume p(feature=0)=1
-			if(rightdistribution==null){
-				rightdistribution=new TreeMap<Integer,Integer>();
-				rightdistribution.put(0,1);
-			}			
-			//calculate JensenShannonDivergence as similarity	
-			divergence+=JensenShannonDivergence(leftdistribution,rightdistribution);			
+			TreeMap<Integer,Integer> leftdistri=en.getValue();
+				TreeMap<Integer,Integer> rightdistri=rightDistribution.get(ID);			
+				if(rightdistri==null){
+					rightdistri=rightZeroDistri;
+				}			
+				divergence+=JensenShannonMixedEntropy(leftdistri,rightdistri,leftCount,rightCount);	
+				leftEntropy+=computeEntropy(leftdistri,leftCount);
 		}
 
-		for (Entry <Integer,TreeMap<Integer,Integer>> en: rightNaiveSummary.entrySet()){
+		TreeMap<Integer,Integer> leftZeroDistri=new TreeMap<Integer,Integer>();
+		leftZeroDistri.put(0, leftCount);
+
+		for (Entry <Integer,TreeMap<Integer,Integer>> en: rightDistribution.entrySet()){
 			int ID=en.getKey();
-			TreeMap<Integer,Integer> rightdistribution=en.getValue();
-			TreeMap<Integer,Integer> leftdistribution=leftNaiveSummary.get(ID);
+			TreeMap<Integer,Integer> rightdistri=en.getValue();
+			TreeMap<Integer,Integer> leftdistri=leftDistribution.get(ID);
 			//need only deal with features belonging only to right
-			if(leftdistribution==null){
-				leftdistribution=new TreeMap<Integer,Integer>();
-				leftdistribution.put(0,1);
-				divergence+=JensenShannonDivergence(leftdistribution,rightdistribution);
-			}									
-		}		
-		return divergence; 	
+			if(leftdistri==null){
+				divergence+=JensenShannonMixedEntropy(leftZeroDistri,rightdistri,leftCount,rightCount);
+			}
+			rightEntropy+=computeEntropy(rightdistri,rightCount);
+		}
+		double weightedEntropySum=leftEntropy*leftCount+rightEntropy*rightCount;		
+		double result=(divergence*totalCount)/weightedEntropySum;
+		return result; 	
 	}
 
-	private static double JensenShannonDivergence(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution){
-		//TODO
+	private static double computeEntropy(TreeMap<Integer,Integer> distribution, int count){
+		double entropy=0;
+		for (Integer frequency: distribution.values()){
+			double p=(double)frequency/count;
+			entropy-=p*Math.log(p);
+		}
+		return entropy;
+	}
+
+	private static boolean shouldSkip(TreeMap<Integer,Integer> distribution,int count, double probThreshold){
+       Iterator<Entry<Integer,Integer>> it=distribution.entrySet().iterator();
+       //skip the case of zero if any
+       Entry<Integer,Integer> en=it.next();
+       if (en.getKey()!=0 && ((double)en.getValue()/count)>probThreshold) {
+    	   return false;
+       }
+    	   
+       while (it.hasNext()){
+    	   int frequency=it.next().getValue();
+    	   if(((double)frequency/count)>probThreshold)
+    		   return false;
+       }
+       return true;
+	}
+
+	private static double JensenShannonMixedEntropy(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution,int leftCount,int rightCount){		
 		double divergence=0;
-		double leftsum=0;
-		for (Entry<Integer,Integer> en: leftDistribution.entrySet()){
-			leftsum+=en.getValue();
-		}
-		double rightsum=0;
-		for (Entry<Integer,Integer> en: rightDistribution.entrySet()){
-			rightsum+=en.getValue();
-		}
+		double totalCount=leftCount+rightCount;
+		double leftRatio=leftCount/totalCount;
+		double rightRatio=1-leftRatio;
 
 		for (Entry<Integer,Integer> en: leftDistribution.entrySet()){
-			int occurrence=en.getKey();
+			Integer occurrence=en.getKey();
 			Integer leftfreq=en.getValue();
-			double leftpi=(double)leftfreq/leftsum;
 			Integer rightfreq=rightDistribution.get(occurrence);
-			if(rightfreq==null){
-				divergence+=leftpi*Math.log(2);
+			double leftP=(leftfreq*leftRatio)/leftCount;
+			if(rightfreq==null){				
+				divergence-=leftP*Math.log(leftP);
 			}
 			else{
-				double midpi=leftpi/2+((double)rightfreq/rightsum)/2;
-				divergence+=leftpi*Math.log(leftpi/midpi);
+				double rightP=(rightfreq*rightRatio)/rightCount;
+				double sumP=leftP+rightP;
+				divergence-=sumP*Math.log(sumP);
 			}
 		}
 
 		for (Entry<Integer,Integer> en: rightDistribution.entrySet()){
-			int occurrence=en.getKey();
+			Integer occurrence=en.getKey();
 			Integer rightfreq=en.getValue();
-			double rightpi=(double)rightfreq/rightsum;
 			Integer leftfreq=leftDistribution.get(occurrence);
 			if(leftfreq==null){
-				divergence+=rightpi*Math.log(2);
-			}
-			else{
-				double midpi=rightpi/2+((double)leftfreq/leftsum)/2;
-				divergence+=rightpi*Math.log(rightpi/midpi);
+				double rightP=(rightfreq*rightRatio)/rightCount;
+				divergence-=rightP*Math.log(rightP);
 			}
 		}		
-		return divergence/2; 	
+		return divergence; 	
 	}
 
 	/**
@@ -839,8 +872,8 @@ public class FeatureVector_Trie {
 			this.featureOccurrenceGEQMarginal=new LinkedHashMap<Integer,TreeMap<Integer,Integer>>();
 
 			TreeMap<ObservedFeatureOccurrence,Integer> frequencyCount=new TreeMap<ObservedFeatureOccurrence,Integer>(this.getFrequencyCount());
-            
-			
+
+
 			for(Entry<ObservedFeatureOccurrence, Integer> en: frequencyCount.entrySet()){
 				int ID=en.getKey().getFeatureID();
 				int occurrence=en.getKey().getOccurrence();
@@ -886,7 +919,7 @@ public class FeatureVector_Trie {
 				if(zeroFrequency>0)
 					EQtreeMap.put(0,zeroFrequency);
 				else if(zeroFrequency<0)
-					System.out.println("please check zero frequency count, less than 0.");
+					System.out.println("please check feature frequency counts, greater than total count.");
 
 				int sum=0;
 				for(Integer frequency: EQtreeMap.values())
@@ -900,7 +933,7 @@ public class FeatureVector_Trie {
 		}	
 		return featureOccurrenceEQMarginal;
 	} 
-	
+
 	/**
 	 * translate FeatureVector into Pattern which can be understand by FP Tree
 	 * @param vector
@@ -915,7 +948,7 @@ public class FeatureVector_Trie {
 		}
 		return pattern;
 	}
-	
+
 	/**
 	 * get the number of non-zero marginals in naive summary
 	 * @return
@@ -931,6 +964,84 @@ public class FeatureVector_Trie {
 			}
 		}
 		return sum;
+	}
+
+	private FeatureVector stripAndRemovePathFromNode(TrieNode node, int count){
+		FeatureVector vector=new FeatureVector();
+		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
+		TrieNode parent=node.getParent(); 
+		//update node count
+		node.deductCount(count);
+		if(node.getCount()<=0){
+			if(parent!=null)
+				parent.removeChild(node);
+			node.setParent(null);	
+		}
+
+		//trace the full path that involves this node		
+		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
+			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());
+			TrieNode current=parent;
+			parent=parent.getParent();
+			//udpate current node count
+			current.deductCount(count);
+			//if empty remove it from the tree
+			if (current.getCount()<=0){
+				if(parent!=null)
+					parent.removeChild(current);
+				current.setParent(null);
+			}
+		}
+		return vector;
+	}
+
+	private FeatureVector stripPathFromNode(TrieNode node){
+		FeatureVector vector=new FeatureVector();
+		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
+		//trace the full path that involves this node
+		TrieNode parent=node.getParent();        
+		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
+			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());            
+			parent=parent.getParent();			
+		}
+		return vector;	
+	}
+
+	/**
+	 * merge two Tries (input Tries will be emptied to release memory)
+	 * @param left
+	 * @param right
+	 * @return
+	 */
+	public static FeatureVector_Trie mergeTries(FeatureVector_Trie left,FeatureVector_Trie right){	
+		FeatureVector_Trie newTrie=new FeatureVector_Trie();
+		//register left first
+		for(Entry<TrieNode, Integer> en: left.instanceMap.entrySet()){
+			TrieNode tail=en.getKey();
+			Integer multiplicity=en.getValue();
+			newTrie.registerFeatureVector(left.stripPathFromNode(tail), multiplicity);
+		}
+		//register right 
+		for(Entry<TrieNode, Integer> en: right.instanceMap.entrySet()){
+			TrieNode tail=en.getKey();
+			Integer multiplicity=en.getValue();
+			newTrie.registerFeatureVector(right.stripPathFromNode(tail), multiplicity);
+		}
+
+		//consume left
+		for(Entry<TrieNode, Integer> en: left.instanceMap.entrySet()){
+			TrieNode tail=en.getKey();
+			Integer multiplicity=en.getValue();
+			newTrie.consumeFeatureVector(left.stripPathFromNode(tail), multiplicity);
+		}
+
+		//consume right
+		for(Entry<TrieNode, Integer> en: right.instanceMap.entrySet()){
+			TrieNode tail=en.getKey();
+			Integer multiplicity=en.getValue();
+			newTrie.consumeFeatureVector(right.stripPathFromNode(tail), multiplicity);
+		}
+		return newTrie;
 	}
 
 

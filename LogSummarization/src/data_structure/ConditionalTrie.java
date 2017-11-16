@@ -141,7 +141,7 @@ public class ConditionalTrie {
 	private void feedInFPPath(TriePath path){
 		//accumulate the total frequency of each sortable item met in the path
 		for(TrieNode node:path.getList()){
-			ObservedFeatureOccurrence sitem=node.getWord();
+			ObservedFeatureOccurrence sitem=node.getObservedFeatureOccurrence();
 			Integer oldcount=this.totalFrequencyMap.get(sitem);
 			if(oldcount==null)
 				this.totalFrequencyMap.put(sitem,0+node.getCount());

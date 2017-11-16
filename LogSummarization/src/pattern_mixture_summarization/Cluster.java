@@ -1,30 +1,29 @@
 package pattern_mixture_summarization;
 
-import java.util.LinkedHashMap;
-
 import data_structure.FeatureVector_Trie;
-import data_structure.ObservedFeatureOccurrence;
 import feature_management.FeatureVector;
 
 public class Cluster {
 	int clusterID;
-	FeatureVector_Trie mytree;//may or may not have its own data storage
-
+	FeatureVector_Trie mytree;
+    NaiveSummary summary;
+    
 	public Cluster(int ID){
 		this.clusterID=ID;	 
 		//create a single cluster
 		mytree=new FeatureVector_Trie(); 
 	}
 	
-	public LinkedHashMap<ObservedFeatureOccurrence,Double> getNaiveSummary(){
-		return mytree.getNaiveSummary();
+	public NaiveSummary getNaiveSummary(){
+		if (this.summary==null)
+			this.summary=this.mytree.getNaiveSummary();		
+		return this.summary;
 	}
 	
 	public void registerFeatureVector(FeatureVector vector){
 		mytree.registerFeatureVector(vector);
 	}
-	
-	
+		
 	public void registerFeatureVector(FeatureVector vector,int multiplicity){
 		mytree.registerFeatureVector(vector,multiplicity);
 	}
@@ -51,6 +50,28 @@ public class Cluster {
 
 	public int getVerbosity(){
 		return this.mytree.getVerbosity();
+	}
+
+	/**
+	 * merge two clusters into one and update the hierarchy of naive summaries
+	 * @param left
+	 * @param right
+	 * @return
+	 */
+	public static Cluster mergeClusters(Cluster left, Cluster right){
+		NaiveSummary leftSummary=left.getNaiveSummary();
+		NaiveSummary rightSummary=right.getNaiveSummary();
+		
+		//use left ID
+		Cluster mergedCluster=new Cluster(left.clusterID);
+		//merge the data stored in data structure
+		mergedCluster.mytree=FeatureVector_Trie.mergeTries(left.mytree, right.mytree);
+		//get new naive summary of the merged 
+		NaiveSummary currentSummary=mergedCluster.getNaiveSummary();
+		//update the structure of the naive summary
+		currentSummary.addAsChild(leftSummary);
+		currentSummary.addAsChild(rightSummary);
+		return mergedCluster;
 	}
 	
 	

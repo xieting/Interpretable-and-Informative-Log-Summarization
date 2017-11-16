@@ -41,7 +41,7 @@ public class TrieNode implements Comparable<TrieNode>{
     
     public void setParent(TrieNode n){this.parent=n;}
     
-    public ObservedFeatureOccurrence getWord(){
+    public ObservedFeatureOccurrence getObservedFeatureOccurrence(){
     	return this.feature;
     }
 
@@ -51,8 +51,8 @@ public class TrieNode implements Comparable<TrieNode>{
      * @param node
      */
     public void addChild(TrieNode node){
-    	int label=node.getWord().getFeatureID();
-    	int occurrence=node.getWord().getOccurrence();
+    	int label=node.getObservedFeatureOccurrence().getFeatureID();
+    	int occurrence=node.getObservedFeatureOccurrence().getOccurrence();
     	
     	HashMap<Integer,TrieNode> map=this.chMap.get(label);
     	if (map==null){
@@ -72,7 +72,7 @@ public class TrieNode implements Comparable<TrieNode>{
      * @param child
      */
     public void removeChild(TrieNode child){
-    	ObservedFeatureOccurrence sfeature=child.getWord();
+    	ObservedFeatureOccurrence sfeature=child.getObservedFeatureOccurrence();
     	int occurrence=sfeature.getOccurrence();   	
     	int label=sfeature.getFeatureID();
     	
@@ -120,7 +120,7 @@ public class TrieNode implements Comparable<TrieNode>{
 
 	@Override
 	public int compareTo(TrieNode o) {		
-		return this.getWord().compareTo(o.getWord());
+		return this.getObservedFeatureOccurrence().compareTo(o.getObservedFeatureOccurrence());
 	}
 }
 

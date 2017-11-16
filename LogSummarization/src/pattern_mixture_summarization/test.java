@@ -1,10 +1,5 @@
 package pattern_mixture_summarization;
 
-import java.util.LinkedHashMap;
-import java.util.Map.Entry;
-
-import data_structure.ObservedFeatureOccurrence;
-
 public class test {
 
 	public static void main(String[] args) {
@@ -13,16 +8,16 @@ public class test {
         String multiplicityPath=rootDirectory+"FeatureVectorCounts.txt";
         String clusterAssignmentsPath=rootDirectory+"hamming_labels.txt";     
         ClusteringResult result=new ClusteringResult( featureVectorsPath,multiplicityPath,clusterAssignmentsPath);
-        for(Cluster c: result.getClusters().values()){
-        	System.out.println("-----Cluster "+c.clusterID+" -----");
-            LinkedHashMap<ObservedFeatureOccurrence,Double> features=c.getNaiveSummary();
-            for (Entry<ObservedFeatureOccurrence,Double> en: features.entrySet()){
-            	int featureID=en.getKey().getFeatureID();
-            	double marginal=en.getValue();
-            	System.out.println(featureID+" : "+marginal);
-            }
-            System.out.println();
-        }
+        int index=0;
+        for(NaiveSummary summary: result.getNaiveSummaryHierarchy()){
+        	System.out.println();
+        	System.out.println("Cluster Error "+summary.getError());
+            System.out.println(summary);
+            System.out.println();  
+            index++;
+        } 
+        System.out.println(index+" clusters after merge.");
+        System.out.println("Average Error is "+result.getError());
 	}
 
 }

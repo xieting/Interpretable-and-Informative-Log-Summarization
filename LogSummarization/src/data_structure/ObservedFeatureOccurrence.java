@@ -5,6 +5,8 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import feature_management.GlobalVariables;
+
 /**
  * Word = feature : occurrence 
  * This object also stores the total contribution of this Word

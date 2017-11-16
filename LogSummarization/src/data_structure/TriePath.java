@@ -4,6 +4,8 @@ package data_structure;
 import java.util.Iterator;
 import java.util.LinkedList;
 
+import feature_management.GlobalVariables;
+
 /**
  * an FP path is an ordered list of FPNodes
  * each element in the list should be the same count of occurrences
@@ -74,7 +76,7 @@ public class TriePath implements Comparable<TriePath>{
       public String getMyLabels(){
     	  String line="";
     	  for (TrieNode n: this.list)
-    		  line+=" "+n.getWord().getFeatureID()+":"+n.getWord().getOccurrence()+":"+n.getCount();
+    		  line+=" "+n.getObservedFeatureOccurrence().getFeatureID()+":"+n.getObservedFeatureOccurrence().getOccurrence()+":"+n.getCount();
 		return line;
       }
       

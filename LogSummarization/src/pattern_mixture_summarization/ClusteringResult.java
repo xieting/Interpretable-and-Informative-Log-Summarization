@@ -7,16 +7,26 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.PriorityQueue;
 import java.util.Scanner;
-import data_structure.GlobalVariables;
+
+import data_structure.FeatureVector_Trie;
 import feature_management.FeatureVector;
+import feature_management.GlobalVariables;
 
 public class ClusteringResult {
 	HashMap<Integer,Cluster> clusterMap=new HashMap<Integer,Cluster>();//data may be essentially stored in its children
 	int totalVerbosity=0;
 	double averageVerbosity=0;
 	double Error=0;
-
+	ArrayList<NaiveSummary> naiveSummaries;
+	
+	//criteria for cluster split
+    double entropyIncreaseLowerBound=1.3;
+    //criteria for skipping too low marginals
+    double supportThreshold=0.05;
+    
 	public ClusteringResult (String featureVectorsPath, String multiplicityPath, String clusterAssignmentPath){
 		ArrayList<Integer> multiplicities = null; 
 		ArrayList<Integer> clusterIDs=new ArrayList<Integer>();
@@ -78,7 +88,81 @@ public class ClusteringResult {
 		catch(IOException e){
 			e.printStackTrace();
 		}
+		//merge clusters and build a hieararchy
+		this.hierarchiallyMergeClusters();
+		//get statistics
+		this.prepareStatistics();
+	}
 
+	/**
+	 * merge existing clusters into bigger clusters hierarchically
+	 */
+	private void hierarchiallyMergeClusters(){
+		//create a hierarchy for each cluster first
+		ArrayList<Cluster> clusterlist=new ArrayList<>(this.clusterMap.values());
+		for (Cluster c: clusterlist){
+			this.splitIntoHierarchy(c);
+		}
+		
+		//begin merge the existing hierarchies hierarchically
+		PriorityQueue<CandidatePairForMerge> queue=new PriorityQueue<CandidatePairForMerge>();
+		for (int i=0;i<clusterlist.size()-1;i++){
+			Cluster left=clusterlist.get(i);
+			for (int j=i+1;j<clusterlist.size();j++){
+				Cluster right=clusterlist.get(j);
+				double predictedEntropyIncrease=FeatureVector_Trie.getPredictedNaiveSummaryEntropy(left.mytree, right.mytree,this.supportThreshold);
+				if(predictedEntropyIncrease<this.entropyIncreaseLowerBound)
+				queue.add(new CandidatePairForMerge(left,right,predictedEntropyIncrease));
+			}
+		}		
+		//while we still have clusters to merge
+		while (!queue.isEmpty()){
+			CandidatePairForMerge topPair=queue.poll();
+			Iterator<Cluster> it=topPair.pair.iterator();
+			Cluster left=it.next();
+			Cluster right=it.next();
+			//merge
+			Cluster mergedCluster=Cluster.mergeClusters(left, right);	
+			//delete entries in the original queue that involves the two merged clusters
+			Iterator<CandidatePairForMerge> qit=queue.iterator();
+			while(qit.hasNext()){
+				CandidatePairForMerge currentPair=qit.next();
+				if(currentPair.pair.contains(left)||currentPair.pair.contains(right))
+					qit.remove();
+			}
+			//delete corresponding entries in the cluster list
+			Iterator<Cluster> cit=clusterlist.iterator();
+			while(cit.hasNext()){
+				Cluster c=cit.next();
+				if(c==left||c==right)
+					cit.remove();
+			}			
+			//add the distances between new cluster to all other existing clusters
+			for (Cluster c:clusterlist){
+				double predictedEntropyIncrease=FeatureVector_Trie.getPredictedNaiveSummaryEntropy(mergedCluster.mytree,c.mytree,this.supportThreshold);
+				if(predictedEntropyIncrease<this.entropyIncreaseLowerBound)
+				queue.add(new CandidatePairForMerge(mergedCluster,c,predictedEntropyIncrease));
+			}
+			//add the new cluster to the tail
+			clusterlist.add(mergedCluster);			
+		}	
+		ArrayList<NaiveSummary> naiveSummaries=new ArrayList<NaiveSummary>();
+		for (int i=0;i<clusterlist.size();i++)
+			naiveSummaries.add(clusterlist.get(i).getNaiveSummary());
+		this.naiveSummaries=naiveSummaries;	
+	}
+	
+	/**
+	 * create a hierarchy of naive summaries by splitting target cluster
+	 * it returns the same object as the input cluster but add it with a hierarchy
+	 * of naive summaries
+	 * @param c
+	 */
+	private void splitIntoHierarchy(Cluster c){
+		//TODO
+	}
+	
+	private void prepareStatistics(){
 		//get total/average verbosity and Error
 		ArrayList<Double> weights=new ArrayList<Double>();
 		ArrayList<Integer> verbosityList=new ArrayList<Integer>();
@@ -123,5 +207,11 @@ public class ClusteringResult {
 	public HashMap<Integer,Cluster> getClusters(){
 		return this.clusterMap;
 	}
+	
+	public ArrayList<NaiveSummary> getNaiveSummaryHierarchy(){
+		return this.naiveSummaries;
+	}
+	
+	
 
 }
