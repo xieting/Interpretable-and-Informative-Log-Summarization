@@ -687,7 +687,7 @@ public class FeatureVector_Trie {
 		double rightEntropy=0;
 
 		int leftCount=left.getTotalFeatureSetCount();
-	    int rightCount=right.getTotalFeatureSetCount();
+		int rightCount=right.getTotalFeatureSetCount();
 		//int leftCount=1;
 		//int rightCount=1;
 		double totalCount=leftCount+rightCount;
@@ -695,26 +695,26 @@ public class FeatureVector_Trie {
 		HashMap<Integer,TreeMap<Integer,Integer>> leftDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
 		for (Entry<Integer,TreeMap<Integer,Integer>> en:left.getFeatureDistribution().entrySet())
 			if(!shouldSkip(en.getValue(),leftCount,probThreshold))
-			leftDistribution.put(en.getKey(), en.getValue());
-			
+				leftDistribution.put(en.getKey(), en.getValue());
+
 		HashMap<Integer,TreeMap<Integer,Integer>> rightDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
 		for (Entry<Integer,TreeMap<Integer,Integer>> en:right.getFeatureDistribution().entrySet())
 			if(!shouldSkip(en.getValue(),rightCount,probThreshold))
-			rightDistribution.put(en.getKey(), en.getValue());	
-		
+				rightDistribution.put(en.getKey(), en.getValue());	
+
 		//search for overlap
 		TreeMap<Integer,Integer> rightZeroDistri=new TreeMap<Integer,Integer>();
 		rightZeroDistri.put(0, rightCount);
-		
+
 		for (Entry <Integer,TreeMap<Integer,Integer>> en: leftDistribution.entrySet()){
 			int ID=en.getKey();
 			TreeMap<Integer,Integer> leftdistri=en.getValue();
-				TreeMap<Integer,Integer> rightdistri=rightDistribution.get(ID);			
-				if(rightdistri==null){
-					rightdistri=rightZeroDistri;
-				}			
-				divergence+=JensenShannonMixedEntropy(leftdistri,rightdistri,leftCount,rightCount);	
-				leftEntropy+=computeEntropy(leftdistri,leftCount);
+			TreeMap<Integer,Integer> rightdistri=rightDistribution.get(ID);			
+			if(rightdistri==null){
+				rightdistri=rightZeroDistri;
+			}			
+			divergence+=JensenShannonMixedEntropy(leftdistri,rightdistri,leftCount,rightCount);	
+			leftEntropy+=computeEntropy(leftdistri,leftCount);
 		}
 
 		TreeMap<Integer,Integer> leftZeroDistri=new TreeMap<Integer,Integer>();
@@ -745,19 +745,19 @@ public class FeatureVector_Trie {
 	}
 
 	private static boolean shouldSkip(TreeMap<Integer,Integer> distribution,int count, double probThreshold){
-       Iterator<Entry<Integer,Integer>> it=distribution.entrySet().iterator();
-       //skip the case of zero if any
-       Entry<Integer,Integer> en=it.next();
-       if (en.getKey()!=0 && ((double)en.getValue()/count)>probThreshold) {
-    	   return false;
-       }
-    	   
-       while (it.hasNext()){
-    	   int frequency=it.next().getValue();
-    	   if(((double)frequency/count)>probThreshold)
-    		   return false;
-       }
-       return true;
+		Iterator<Entry<Integer,Integer>> it=distribution.entrySet().iterator();
+		//skip the case of zero if any
+		Entry<Integer,Integer> en=it.next();
+		if (en.getKey()!=0 && ((double)en.getValue()/count)>probThreshold) {
+			return false;
+		}
+
+		while (it.hasNext()){
+			int frequency=it.next().getValue();
+			if(((double)frequency/count)>probThreshold)
+				return false;
+		}
+		return true;
 	}
 
 	private static double JensenShannonMixedEntropy(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution,int leftCount,int rightCount){		
@@ -816,20 +816,25 @@ public class FeatureVector_Trie {
 		double assumedIC=this.NaiveEntropy;
 		if(assumedIC<0){
 			assumedIC=0;
+			HashSet<HashSet<Integer>> computedDistributions=new HashSet<HashSet<Integer>>();
 			HashMap<Integer,TreeMap<Integer,Integer>> featureDistribution=this.getFeatureDistribution();
 			for (Entry<Integer, TreeMap<Integer, Integer>> en: featureDistribution.entrySet()){
 				int sum=0;
 				TreeMap<Integer, Integer> treeMap=en.getValue();
-				double p;
-				for(Entry<Integer, Integer> enn: treeMap.entrySet()){
-					Integer frequency=enn.getValue();
-					p=(double)frequency/(double)this.count;
-					assumedIC+=-p*Math.log(p); 
-					//sanity check
-					sum+=frequency;
+				HashSet<Integer> freqSet=new HashSet<Integer>(treeMap.values());
+				//if it is not a duplicate distribution
+				if(!computedDistributions.contains(freqSet)){
+					computedDistributions.add(freqSet);
+					double p;
+					for(Integer frequency: freqSet){
+						p=(double)frequency/(double)this.count;
+						assumedIC+=-p*Math.log(p); 
+						//sanity check
+						sum+=frequency;
+					}
+					if(sum!=this.count)
+						System.out.println("naive summary mariginals does not sum to one, please check.");
 				}
-				if(sum!=this.count)
-					System.out.println("naive summary mariginals does not sum to one, please check.");
 			}
 			this.NaiveEntropy=assumedIC;
 		}
