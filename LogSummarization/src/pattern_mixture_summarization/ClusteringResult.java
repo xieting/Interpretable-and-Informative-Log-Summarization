@@ -23,9 +23,7 @@ public class ClusteringResult {
 	ArrayList<NaiveSummary> naiveSummaries;
 	
 	//criteria for cluster split
-    double entropyIncreaseLowerBound=1.3;
-    //criteria for skipping too low marginals
-    double supportThreshold=0.05;
+    double ErrorUpperBound=2;
     
 	public ClusteringResult (String featureVectorsPath, String multiplicityPath, String clusterAssignmentPath){
 		ArrayList<Integer> multiplicities = null; 
@@ -110,9 +108,9 @@ public class ClusteringResult {
 			Cluster left=clusterlist.get(i);
 			for (int j=i+1;j<clusterlist.size();j++){
 				Cluster right=clusterlist.get(j);
-				double predictedEntropyIncrease=FeatureVector_Trie.getPredictedNaiveSummaryEntropy(left.mytree, right.mytree,this.supportThreshold);
-				if(predictedEntropyIncrease<this.entropyIncreaseLowerBound)
-				queue.add(new CandidatePairForMerge(left,right,predictedEntropyIncrease));
+				double result=FeatureVector_Trie.getPredictedError(left.mytree, right.mytree);
+				if(result<this.ErrorUpperBound)
+				queue.add(new CandidatePairForMerge(left,right,result));
 			}
 		}		
 		//while we still have clusters to merge
@@ -139,9 +137,9 @@ public class ClusteringResult {
 			}			
 			//add the distances between new cluster to all other existing clusters
 			for (Cluster c:clusterlist){
-				double predictedEntropyIncrease=FeatureVector_Trie.getPredictedNaiveSummaryEntropy(mergedCluster.mytree,c.mytree,this.supportThreshold);
-				if(predictedEntropyIncrease<this.entropyIncreaseLowerBound)
-				queue.add(new CandidatePairForMerge(mergedCluster,c,predictedEntropyIncrease));
+				double result=FeatureVector_Trie.getPredictedError(mergedCluster.mytree,c.mytree);
+				if(result<this.ErrorUpperBound)
+				queue.add(new CandidatePairForMerge(mergedCluster,c,result));
 			}
 			//add the new cluster to the tail
 			clusterlist.add(mergedCluster);			

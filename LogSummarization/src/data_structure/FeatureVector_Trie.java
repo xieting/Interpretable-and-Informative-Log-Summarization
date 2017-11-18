@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Scanner;
 import java.util.Map.Entry;
@@ -675,122 +674,105 @@ public class FeatureVector_Trie {
 		return this.naiveSummaryError;
 	}
 
-	/**
-	 * Measure the distance between two naive summaries of FP Trees
-	 * @param left
-	 * @param right
-	 * @return
-	 */
-	public static double getPredictedNaiveSummaryEntropy(FeatureVector_Trie left,FeatureVector_Trie right,double probThreshold){
-		double divergence=0;
-		double leftEntropy=0;
-		double rightEntropy=0;
-
+/**
+ * Compare two Tries and get 1) predicted Error after merge 2) distance between them
+ * @param left
+ * @param right
+ * @param probThreshold
+ * @return
+ */
+	public static double getPredictedError(FeatureVector_Trie left,FeatureVector_Trie right){
+		double leftEntropy=left.getNaiveEntropy();
+		double rightEntropy=right.getNaiveEntropy();
+        
 		int leftCount=left.getTotalFeatureSetCount();
 		int rightCount=right.getTotalFeatureSetCount();
-		//int leftCount=1;
-		//int rightCount=1;
-		double totalCount=leftCount+rightCount;
 
-		HashMap<Integer,TreeMap<Integer,Integer>> leftDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
-		for (Entry<Integer,TreeMap<Integer,Integer>> en:left.getFeatureDistribution().entrySet())
-			if(!shouldSkip(en.getValue(),leftCount,probThreshold))
-				leftDistribution.put(en.getKey(), en.getValue());
-
-		HashMap<Integer,TreeMap<Integer,Integer>> rightDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>();
-		for (Entry<Integer,TreeMap<Integer,Integer>> en:right.getFeatureDistribution().entrySet())
-			if(!shouldSkip(en.getValue(),rightCount,probThreshold))
-				rightDistribution.put(en.getKey(), en.getValue());	
+		HashMap<Integer,TreeMap<Integer,Integer>> leftDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>(left.getFeatureDistribution());
+		HashMap<Integer,TreeMap<Integer,Integer>> rightDistribution=new HashMap<Integer,TreeMap<Integer,Integer>>(right.getFeatureDistribution());
 
 		//search for overlap
-		TreeMap<Integer,Integer> rightZeroDistri=new TreeMap<Integer,Integer>();
-		rightZeroDistri.put(0, rightCount);
+		TreeMap<Integer,Double> zeroDistri=new TreeMap<Integer,Double>();
+		zeroDistri.put(0, 1.0);
 
+		TreeMap<Integer,TreeMap<Integer,Double>> combinedDistri=new TreeMap<Integer,TreeMap<Integer,Double>>();
+		
 		for (Entry <Integer,TreeMap<Integer,Integer>> en: leftDistribution.entrySet()){
 			int ID=en.getKey();
-			TreeMap<Integer,Integer> leftdistri=en.getValue();
-			TreeMap<Integer,Integer> rightdistri=rightDistribution.get(ID);			
-			if(rightdistri==null){
-				rightdistri=rightZeroDistri;
-			}			
-			divergence+=JensenShannonMixedEntropy(leftdistri,rightdistri,leftCount,rightCount);	
-			leftEntropy+=computeEntropy(leftdistri,leftCount);
+			TreeMap<Integer,Integer> leftFreq=en.getValue();
+			TreeMap<Integer,Integer> rightFreq=rightDistribution.get(ID);	
+			
+			TreeMap<Integer,Double> leftdistri=new TreeMap<Integer,Double>();			
+			for (Entry<Integer, Integer> enn: leftFreq.entrySet()){
+				leftdistri.put(enn.getKey(), (double)enn.getValue()/leftCount);
+			}
+			
+			TreeMap<Integer,Double> rightdistri;
+			if(rightFreq==null){
+				rightdistri=zeroDistri;
+			}
+			else {
+				rightdistri=new TreeMap<Integer,Double>();
+				for (Entry<Integer, Integer> enn: rightFreq.entrySet()){
+					rightdistri.put(enn.getKey(), (double)enn.getValue()/rightCount);
+				}
+			}
+			
+			combinedDistri.put(ID, mixDistribution(leftdistri,rightdistri));			
 		}
-
-		TreeMap<Integer,Integer> leftZeroDistri=new TreeMap<Integer,Integer>();
-		leftZeroDistri.put(0, leftCount);
 
 		for (Entry <Integer,TreeMap<Integer,Integer>> en: rightDistribution.entrySet()){
 			int ID=en.getKey();
-			TreeMap<Integer,Integer> rightdistri=en.getValue();
-			TreeMap<Integer,Integer> leftdistri=leftDistribution.get(ID);
+			TreeMap<Integer,Integer> rightFreq=en.getValue();
+			TreeMap<Integer,Integer> leftFreq=leftDistribution.get(ID);
 			//need only deal with features belonging only to right
-			if(leftdistri==null){
-				divergence+=JensenShannonMixedEntropy(leftZeroDistri,rightdistri,leftCount,rightCount);
+			if(leftFreq==null){
+				TreeMap<Integer,Double>	rightdistri=new TreeMap<Integer,Double>();
+				for (Entry<Integer, Integer> enn: rightFreq.entrySet()){
+					rightdistri.put(enn.getKey(), (double)enn.getValue()/rightCount);
+				}	
+				combinedDistri.put(ID, mixDistribution(zeroDistri,rightdistri));
 			}
-			rightEntropy+=computeEntropy(rightdistri,rightCount);
 		}
-		double weightedEntropySum=leftEntropy*leftCount+rightEntropy*rightCount;		
-		double result=(divergence*totalCount)/weightedEntropySum;
+		//compute the entropy
+        double combinedEntropy=0;
+        HashSet<TreeMap<Integer,Double>> distinctDistributions=new HashSet<TreeMap<Integer,Double>>(combinedDistri.values());
+        for (TreeMap<Integer,Double> distribution:distinctDistributions){
+        	for (Double prob: distribution.values())
+        		combinedEntropy-=prob*Math.log(prob);
+        }
+		
+		double result=combinedEntropy-Math.min(leftEntropy, rightEntropy);
+		//System.out.println(result);
 		return result; 	
 	}
+	
+	private static TreeMap<Integer,Double> mixDistribution(TreeMap<Integer,Double> leftDistribution,TreeMap<Integer,Double> rightDistribution){		
+		TreeMap<Integer,Double> mixDistri=new TreeMap<Integer,Double>();
 
-	private static double computeEntropy(TreeMap<Integer,Integer> distribution, int count){
-		double entropy=0;
-		for (Integer frequency: distribution.values()){
-			double p=(double)frequency/count;
-			entropy-=p*Math.log(p);
-		}
-		return entropy;
-	}
-
-	private static boolean shouldSkip(TreeMap<Integer,Integer> distribution,int count, double probThreshold){
-		Iterator<Entry<Integer,Integer>> it=distribution.entrySet().iterator();
-		//skip the case of zero if any
-		Entry<Integer,Integer> en=it.next();
-		if (en.getKey()!=0 && ((double)en.getValue()/count)>probThreshold) {
-			return false;
-		}
-
-		while (it.hasNext()){
-			int frequency=it.next().getValue();
-			if(((double)frequency/count)>probThreshold)
-				return false;
-		}
-		return true;
-	}
-
-	private static double JensenShannonMixedEntropy(TreeMap<Integer,Integer> leftDistribution,TreeMap<Integer,Integer> rightDistribution,int leftCount,int rightCount){		
-		double divergence=0;
-		double totalCount=leftCount+rightCount;
-		double leftRatio=leftCount/totalCount;
-		double rightRatio=1-leftRatio;
-
-		for (Entry<Integer,Integer> en: leftDistribution.entrySet()){
+		for (Entry<Integer,Double> en: leftDistribution.entrySet()){
 			Integer occurrence=en.getKey();
-			Integer leftfreq=en.getValue();
-			Integer rightfreq=rightDistribution.get(occurrence);
-			double leftP=(leftfreq*leftRatio)/leftCount;
-			if(rightfreq==null){				
-				divergence-=leftP*Math.log(leftP);
+			Double leftprob=en.getValue()/2;
+			Double rightprob=rightDistribution.get(occurrence);
+			
+			if(rightprob==null){				
+				mixDistri.put(occurrence, leftprob);
 			}
 			else{
-				double rightP=(rightfreq*rightRatio)/rightCount;
-				double sumP=leftP+rightP;
-				divergence-=sumP*Math.log(sumP);
+				double combinedprob=leftprob+rightprob/2;
+				mixDistri.put(occurrence, combinedprob);
 			}
 		}
 
-		for (Entry<Integer,Integer> en: rightDistribution.entrySet()){
+		for (Entry<Integer,Double> en: rightDistribution.entrySet()){
 			Integer occurrence=en.getKey();
-			Integer rightfreq=en.getValue();
-			Integer leftfreq=leftDistribution.get(occurrence);
-			if(leftfreq==null){
-				double rightP=(rightfreq*rightRatio)/rightCount;
-				divergence-=rightP*Math.log(rightP);
+			Double rightprob=en.getValue()/2;
+			Double leftprob=leftDistribution.get(occurrence);
+			if(leftprob==null){				
+				mixDistri.put(occurrence, rightprob);
 			}
 		}		
-		return divergence; 	
+		return mixDistri; 	
 	}
 
 	/**
@@ -816,17 +798,17 @@ public class FeatureVector_Trie {
 		double assumedIC=this.NaiveEntropy;
 		if(assumedIC<0){
 			assumedIC=0;
-			HashSet<HashSet<Integer>> computedDistributions=new HashSet<HashSet<Integer>>();
+			HashSet<TreeMap<Integer,Integer>> computedDistributions=new HashSet<TreeMap<Integer,Integer>>();
 			HashMap<Integer,TreeMap<Integer,Integer>> featureDistribution=this.getFeatureDistribution();
 			for (Entry<Integer, TreeMap<Integer, Integer>> en: featureDistribution.entrySet()){
 				int sum=0;
 				TreeMap<Integer, Integer> treeMap=en.getValue();
-				HashSet<Integer> freqSet=new HashSet<Integer>(treeMap.values());
-				//if it is not a duplicate distribution
-				if(!computedDistributions.contains(freqSet)){
-					computedDistributions.add(freqSet);
+				//features wit the same occurrence distribution is regarded as in the same
+				//pattern and the entropy is only considered once
+				if(!computedDistributions.contains(treeMap)){
+					computedDistributions.add(treeMap);
 					double p;
-					for(Integer frequency: freqSet){
+					for(Integer frequency: treeMap.values()){
 						p=(double)frequency/(double)this.count;
 						assumedIC+=-p*Math.log(p); 
 						//sanity check
@@ -838,6 +820,7 @@ public class FeatureVector_Trie {
 			}
 			this.NaiveEntropy=assumedIC;
 		}
+		System.out.println(assumedIC);
 		return assumedIC;
 	}
 
@@ -971,34 +954,34 @@ public class FeatureVector_Trie {
 		return sum;
 	}
 
-	private FeatureVector stripAndRemovePathFromNode(TrieNode node, int count){
-		FeatureVector vector=new FeatureVector();
-		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
-		TrieNode parent=node.getParent(); 
-		//update node count
-		node.deductCount(count);
-		if(node.getCount()<=0){
-			if(parent!=null)
-				parent.removeChild(node);
-			node.setParent(null);	
-		}
-
-		//trace the full path that involves this node		
-		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
-			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());
-			TrieNode current=parent;
-			parent=parent.getParent();
-			//udpate current node count
-			current.deductCount(count);
-			//if empty remove it from the tree
-			if (current.getCount()<=0){
-				if(parent!=null)
-					parent.removeChild(current);
-				current.setParent(null);
-			}
-		}
-		return vector;
-	}
+//	private FeatureVector stripAndRemovePathFromNode(TrieNode node, int count){
+//		FeatureVector vector=new FeatureVector();
+//		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
+//		TrieNode parent=node.getParent(); 
+//		//update node count
+//		node.deductCount(count);
+//		if(node.getCount()<=0){
+//			if(parent!=null)
+//				parent.removeChild(node);
+//			node.setParent(null);	
+//		}
+//
+//		//trace the full path that involves this node		
+//		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
+//			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());
+//			TrieNode current=parent;
+//			parent=parent.getParent();
+//			//udpate current node count
+//			current.deductCount(count);
+//			//if empty remove it from the tree
+//			if (current.getCount()<=0){
+//				if(parent!=null)
+//					parent.removeChild(current);
+//				current.setParent(null);
+//			}
+//		}
+//		return vector;
+//	}
 
 	private FeatureVector stripPathFromNode(TrieNode node){
 		FeatureVector vector=new FeatureVector();
