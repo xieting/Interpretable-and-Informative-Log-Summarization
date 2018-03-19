@@ -3,7 +3,7 @@ package summarizationDistanceMetric;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import feature_management.FeatureVector;
 
 /**
@@ -12,19 +12,19 @@ import feature_management.FeatureVector;
  *
  */
 public class InformationOverlap implements DistanceMetric{
-	private FeatureVector_Trie tree;
+	private Trie tree;
 	private LinkedHashMap<FeatureVector,Integer> interSecbuffer;
 	private LinkedHashMap<FeatureVector,Integer> leftRightbuffer;
 	private int bufferMaxsize=100000;//default buffer size
 
-	public InformationOverlap(FeatureVector_Trie tree,int maxsize){
+	public InformationOverlap(Trie tree,int maxsize){
 		this.tree=tree;
 		this.interSecbuffer=new LinkedHashMap<FeatureVector,Integer>();
 		this.leftRightbuffer=new LinkedHashMap<FeatureVector,Integer>();
 		this.bufferMaxsize=maxsize;
 	}
 
-	public InformationOverlap(FeatureVector_Trie tree){
+	public InformationOverlap(Trie tree){
 		this.tree=tree;
 		this.interSecbuffer=new LinkedHashMap<FeatureVector,Integer>();
 		this.leftRightbuffer=new LinkedHashMap<FeatureVector,Integer>();

@@ -4,15 +4,15 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import feature_management.FeatureVector;
 
 public class NaiveSummaryDistance implements DistanceMetric{
-	private FeatureVector_Trie mytree;
+	private Trie mytree;
 	private boolean isSimilarity;
 	private LinkedHashMap<FeatureVector,Integer> leftRightbuffer;
 	private int bufferMaxsize=1000000;//default buffer size
-	public NaiveSummaryDistance(FeatureVector_Trie mytree,boolean isSimilarity){
+	public NaiveSummaryDistance(Trie mytree,boolean isSimilarity){
 		this.mytree=mytree;
 		this.isSimilarity=isSimilarity;
 		this.leftRightbuffer=new LinkedHashMap<FeatureVector,Integer>();

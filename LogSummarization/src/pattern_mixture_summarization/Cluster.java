@@ -1,17 +1,17 @@
 package pattern_mixture_summarization;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import feature_management.FeatureVector;
 
 public class Cluster {
 	int clusterID;
-	FeatureVector_Trie mytree;
+	Trie mytree;
     NaiveSummary summary;
     
 	public Cluster(int ID){
 		this.clusterID=ID;	 
 		//create a single cluster
-		mytree=new FeatureVector_Trie(); 
+		mytree=new Trie(); 
 	}
 	
 	public NaiveSummary getNaiveSummary(){
@@ -65,7 +65,7 @@ public class Cluster {
 		//use left ID
 		Cluster mergedCluster=new Cluster(left.clusterID);
 		//merge the data stored in data structure
-		mergedCluster.mytree=FeatureVector_Trie.mergeTries(left.mytree, right.mytree);
+		mergedCluster.mytree=Trie.mergeTries(left.mytree, right.mytree);
 		//get new naive summary of the merged 
 		NaiveSummary currentSummary=mergedCluster.getNaiveSummary();
 		//update the structure of the naive summary

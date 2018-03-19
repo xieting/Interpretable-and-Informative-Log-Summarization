@@ -11,7 +11,7 @@ import javax.swing.JPanel;
 
 import com.google.common.collect.HashMultiset;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import data_structure.ObservedFeatureOccurrence;
 import feature_management.BasisFeature;
 import feature_management.Feature;
@@ -38,7 +38,7 @@ public class SummaryVisualizer {
 	int clusterID;
 	float threshold;
 
-	public SummaryVisualizer (float threshold,int clusterID,FeatureVector_Trie tree,HashMap<Integer,ObservedFeatureOccurrence> featureMap){
+	public SummaryVisualizer (float threshold,int clusterID,Trie tree,HashMap<Integer,ObservedFeatureOccurrence> featureMap){
 		this.threshold=threshold;
 		this.clusterID=clusterID;
 		this.sectionMap=new HashMap<String,ContentWithOpacity>();
@@ -74,7 +74,7 @@ public class SummaryVisualizer {
 
 	}
 
-	public SummaryVisualizer (float threshold,int clusterID,FeatureVector_Trie tree){
+	public SummaryVisualizer (float threshold,int clusterID,Trie tree){
 		this.threshold=threshold;
 		this.clusterID=clusterID;
 		this.sectionMap=new HashMap<String,ContentWithOpacity>();

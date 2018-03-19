@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import feature_management.FeatureVector;
 import summarizationDistanceMetric.DistanceMetric;
 import summarizationDistanceMetric.InformationOverlap;
@@ -27,7 +27,7 @@ public class DistanceMatrixGenerate {
 		String matrixPath="Custom_DistanceMatrix.txt";
 			
 
-			FeatureVector_Trie mytree=new FeatureVector_Trie(datapath+featureVectorpath,datapath+featureVectorMultiplicityPath);
+			Trie mytree=new Trie(datapath+featureVectorpath,datapath+featureVectorMultiplicityPath);
 
 			ArrayList<FeatureVector> vectorList=new ArrayList<FeatureVector>();
 

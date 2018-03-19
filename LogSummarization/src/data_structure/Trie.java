@@ -3,7 +3,9 @@ package data_structure;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -27,7 +29,7 @@ import pattern_mixture_summarization.NaiveSummaryEntry;
  * @author Ting Xie
  *
  */
-public class FeatureVector_Trie {
+public class Trie {
 	private HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> observedFeatureOccurrenceMap;//its own feature map, two keys featureID+occurrence
 	private HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> trackMap;//tracking the position of sortable features
 	private LinkedHashMap<Integer,TreeMap<Integer,Integer>> featureOccurrenceGEQMarginal; // For <Feature_i,Occurrence>, it stores p(Feature_i>=occurrence)
@@ -45,7 +47,7 @@ public class FeatureVector_Trie {
 	private String featurevectorPath=null;
 	private String multiplicityPath=null;
 
-	public FeatureVector_Trie(){
+	public Trie(){
 		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>();
 		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> ();
 		ObservedFeatureOccurrence feature = null;
@@ -55,7 +57,7 @@ public class FeatureVector_Trie {
 		this.distinctcount=0;
 	}
 
-	public FeatureVector_Trie(String featureVectorPath,String multiplicityPath){
+	public Trie(String featureVectorPath,String multiplicityPath){
 		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>();
 		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>> ();
 		ObservedFeatureOccurrence feature = null;
@@ -106,7 +108,7 @@ public class FeatureVector_Trie {
 
 	}
 
-	public FeatureVector_Trie(String featureVectorPath){
+	public Trie(String featureVectorPath){
 		this.featurevectorPath=featureVectorPath;
 		//register feature vectors using one linear scan over the data
 		try {
@@ -141,7 +143,7 @@ public class FeatureVector_Trie {
 	 * give a deep copy
 	 * @param input
 	 */
-	public FeatureVector_Trie(FeatureVector_Trie input){
+	public Trie(Trie input){
 		this.observedFeatureOccurrenceMap=new HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>>(input.observedFeatureOccurrenceMap);
 		this.trackMap=new HashMap<ObservedFeatureOccurrence,HashSet<TrieNode>>(input.trackMap);
 		this.root=input.root;
@@ -681,7 +683,7 @@ public class FeatureVector_Trie {
  * @param probThreshold
  * @return
  */
-	public static double getPredictedError(FeatureVector_Trie left,FeatureVector_Trie right){
+	public static double getPredictedError(Trie left,Trie right){
 		double leftEntropy=left.getNaiveEntropy();
 		double rightEntropy=right.getNaiveEntropy();
         
@@ -1001,8 +1003,8 @@ public class FeatureVector_Trie {
 	 * @param right
 	 * @return
 	 */
-	public static FeatureVector_Trie mergeTries(FeatureVector_Trie left,FeatureVector_Trie right){	
-		FeatureVector_Trie newTrie=new FeatureVector_Trie();
+	public static Trie mergeTries(Trie left,Trie right){	
+		Trie newTrie=new Trie();
 		//register left first
 		for(Entry<TrieNode, Integer> en: left.instanceMap.entrySet()){
 			TrieNode tail=en.getKey();
@@ -1031,7 +1033,45 @@ public class FeatureVector_Trie {
 		}
 		return newTrie;
 	}
+	
+	/**
+	 * Encode the Trie into a sequence and output to destination file path
+	 * @param outputPath
+	 */
+public void getSequenceEncoding(String outputPath){
+	//traverse the trie and get the sequence encoding
+	ArrayList<TrieNode> sequence= getSequenceStartingFromNode(this.root,0);
+	//output to a file
+	try {
+		PrintWriter outFile = new PrintWriter(new FileWriter(outputPath, false));
+		for (TrieNode node: sequence){
+			ObservedFeatureOccurrence fo =node.getObservedFeatureOccurrence();
+			outFile.println(fo.getFeatureID()+":"+fo.getOccurrence()+":"+node.getCount()+":"+node.parentIndex);
+		}
+		outFile.close();
+	} catch (IOException e) {
+		e.printStackTrace();
+	}
+}
 
+private ArrayList<TrieNode> getSequenceStartingFromNode(TrieNode root,int rootIndex){
+	ArrayList<TrieNode> sequence=new ArrayList<TrieNode>();
+	//put the root node in
+	sequence.add(root);	
+	//concatenate child sequence one by one
+	HashMap<Integer, HashMap<Integer, TrieNode>> childrenlist=root.getChildren();
+	
+	for (Entry<Integer, HashMap<Integer, TrieNode>> en: childrenlist.entrySet()){		  
+		  for (Entry<Integer, TrieNode> enn: en.getValue().entrySet()){
+			  TrieNode child=enn.getValue();
+			  //set the child's parentIndex
+			  child.parentIndex=rootIndex;	  
+			  ArrayList<TrieNode> childSequence=getSequenceStartingFromNode(child,sequence.size());			  
+			  sequence.addAll(childSequence);
+		}	
+	}
+	return sequence;
+}
 
 }
 

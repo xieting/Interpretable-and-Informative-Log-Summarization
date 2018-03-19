@@ -24,7 +24,7 @@ public class ConditionalTrie {
 	private HashMap<ObservedFeatureOccurrence,Integer> totalFrequencyMap=new HashMap<ObservedFeatureOccurrence,Integer>();//keep track of totalFrequency of all 1-item sets
 	private ConditionalTrie parent;
 	private ObservedFeatureOccurrence conditionedItem;//the item that this conditional tree is conditioned on
-	private FeatureVector_Trie fptree;
+	private Trie fptree;
 	private int totalCount;
 	private HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap;//its own sortable item map two keys itemID+occurrence
 	private double hconfidence;
@@ -43,7 +43,7 @@ public class ConditionalTrie {
         this.entropyLower=entropyLower;
 		this.parent=parent;
 		this.conditionedItem=conditionedItem;    	
-		this.fptree=new FeatureVector_Trie();
+		this.fptree=new Trie();
 		this.totalCount=totalCount;
 		this.itemMap=parent.itemMap;
 	}
@@ -61,7 +61,7 @@ public class ConditionalTrie {
 		this.entropyLower=entropyLower;
 		this.parent=parent;
 		this.conditionedItem=conditionedItem;    	
-		this.fptree=new FeatureVector_Trie();
+		this.fptree=new Trie();
 		this.totalCount=totalCount;
 		this.itemMap=parent.itemMap;
 		this.rootTotalFrequencyMap=parent.rootTotalFrequencyMap;
@@ -75,7 +75,7 @@ public class ConditionalTrie {
 	
 	}
 
-	public ConditionalTrie(int supportLower,int FPTotalCount,double entropyLower,FeatureVector_Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
+	public ConditionalTrie(int supportLower,int FPTotalCount,double entropyLower,Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
 		this.entropyLower=entropyLower;
@@ -95,7 +95,7 @@ public class ConditionalTrie {
 		this.itemMap=itemMap;
 	}
 	
-	public ConditionalTrie(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,FeatureVector_Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
+	public ConditionalTrie(double hconfidence,int supportLower,int FPTotalCount,double entropyLower,Trie fptree,HashMap<Integer,HashMap<Integer,ObservedFeatureOccurrence>> itemMap){
 		this.hconfidence=hconfidence;
 		this.supportLower=supportLower;
 		this.FPTotalCount=FPTotalCount;
@@ -127,7 +127,7 @@ public class ConditionalTrie {
 		return this.conditionedItem;
 	}
 
-	public FeatureVector_Trie getItsFPTree(){
+	public Trie getItsFPTree(){
 		return this.fptree;
 	}
 

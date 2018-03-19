@@ -11,7 +11,7 @@ import java.util.Iterator;
 import java.util.PriorityQueue;
 import java.util.Scanner;
 
-import data_structure.FeatureVector_Trie;
+import data_structure.Trie;
 import feature_management.FeatureVector;
 import feature_management.GlobalVariables;
 
@@ -108,7 +108,7 @@ public class ClusteringResult {
 			Cluster left=clusterlist.get(i);
 			for (int j=i+1;j<clusterlist.size();j++){
 				Cluster right=clusterlist.get(j);
-				double result=FeatureVector_Trie.getPredictedError(left.mytree, right.mytree);
+				double result=Trie.getPredictedError(left.mytree, right.mytree);
 				if(result<this.ErrorUpperBound)
 				queue.add(new CandidatePairForMerge(left,right,result));
 			}
@@ -137,7 +137,7 @@ public class ClusteringResult {
 			}			
 			//add the distances between new cluster to all other existing clusters
 			for (Cluster c:clusterlist){
-				double result=FeatureVector_Trie.getPredictedError(mergedCluster.mytree,c.mytree);
+				double result=Trie.getPredictedError(mergedCluster.mytree,c.mytree);
 				if(result<this.ErrorUpperBound)
 				queue.add(new CandidatePairForMerge(mergedCluster,c,result));
 			}

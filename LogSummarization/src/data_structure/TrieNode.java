@@ -14,6 +14,7 @@ public class TrieNode implements Comparable<TrieNode>{
       private int count;//count of # of occurrences of the pattern represented by this node
 	  private HashMap<Integer, HashMap<Integer,TrieNode>> chMap;// hashmap of its children branch, the first Integer is the feature label, second Integer is the occurrence
 	  private TrieNode parent;//its parent node
+	  public int parentIndex=-1;
 	  
     public TrieNode(ObservedFeatureOccurrence feature){
     	this.feature=feature;
