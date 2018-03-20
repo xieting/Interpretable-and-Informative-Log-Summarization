@@ -21,9 +21,6 @@ import feature_management.GlobalVariables;
 import pattern_mixture_summarization.NaiveSummary;
 import pattern_mixture_summarization.NaiveSummaryEntry;
 
-
-
-
 /**
  * this is the main part, FP_inference tree
  * @author Ting Xie
@@ -676,17 +673,17 @@ public class Trie {
 		return this.naiveSummaryError;
 	}
 
-/**
- * Compare two Tries and get 1) predicted Error after merge 2) distance between them
- * @param left
- * @param right
- * @param probThreshold
- * @return
- */
+	/**
+	 * Compare two Tries and get 1) predicted Error after merge 2) distance between them
+	 * @param left
+	 * @param right
+	 * @param probThreshold
+	 * @return
+	 */
 	public static double getPredictedError(Trie left,Trie right){
 		double leftEntropy=left.getNaiveEntropy();
 		double rightEntropy=right.getNaiveEntropy();
-        
+
 		int leftCount=left.getTotalFeatureSetCount();
 		int rightCount=right.getTotalFeatureSetCount();
 
@@ -698,17 +695,17 @@ public class Trie {
 		zeroDistri.put(0, 1.0);
 
 		TreeMap<Integer,TreeMap<Integer,Double>> combinedDistri=new TreeMap<Integer,TreeMap<Integer,Double>>();
-		
+
 		for (Entry <Integer,TreeMap<Integer,Integer>> en: leftDistribution.entrySet()){
 			int ID=en.getKey();
 			TreeMap<Integer,Integer> leftFreq=en.getValue();
 			TreeMap<Integer,Integer> rightFreq=rightDistribution.get(ID);	
-			
+
 			TreeMap<Integer,Double> leftdistri=new TreeMap<Integer,Double>();			
 			for (Entry<Integer, Integer> enn: leftFreq.entrySet()){
 				leftdistri.put(enn.getKey(), (double)enn.getValue()/leftCount);
 			}
-			
+
 			TreeMap<Integer,Double> rightdistri;
 			if(rightFreq==null){
 				rightdistri=zeroDistri;
@@ -719,7 +716,7 @@ public class Trie {
 					rightdistri.put(enn.getKey(), (double)enn.getValue()/rightCount);
 				}
 			}
-			
+
 			combinedDistri.put(ID, mixDistribution(leftdistri,rightdistri));			
 		}
 
@@ -737,18 +734,18 @@ public class Trie {
 			}
 		}
 		//compute the entropy
-        double combinedEntropy=0;
-        HashSet<TreeMap<Integer,Double>> distinctDistributions=new HashSet<TreeMap<Integer,Double>>(combinedDistri.values());
-        for (TreeMap<Integer,Double> distribution:distinctDistributions){
-        	for (Double prob: distribution.values())
-        		combinedEntropy-=prob*Math.log(prob);
-        }
-		
+		double combinedEntropy=0;
+		HashSet<TreeMap<Integer,Double>> distinctDistributions=new HashSet<TreeMap<Integer,Double>>(combinedDistri.values());
+		for (TreeMap<Integer,Double> distribution:distinctDistributions){
+			for (Double prob: distribution.values())
+				combinedEntropy-=prob*Math.log(prob);
+		}
+
 		double result=combinedEntropy-Math.min(leftEntropy, rightEntropy);
 		//System.out.println(result);
 		return result; 	
 	}
-	
+
 	private static TreeMap<Integer,Double> mixDistribution(TreeMap<Integer,Double> leftDistribution,TreeMap<Integer,Double> rightDistribution){		
 		TreeMap<Integer,Double> mixDistri=new TreeMap<Integer,Double>();
 
@@ -756,7 +753,7 @@ public class Trie {
 			Integer occurrence=en.getKey();
 			Double leftprob=en.getValue()/2;
 			Double rightprob=rightDistribution.get(occurrence);
-			
+
 			if(rightprob==null){				
 				mixDistri.put(occurrence, leftprob);
 			}
@@ -956,34 +953,34 @@ public class Trie {
 		return sum;
 	}
 
-//	private FeatureVector stripAndRemovePathFromNode(TrieNode node, int count){
-//		FeatureVector vector=new FeatureVector();
-//		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
-//		TrieNode parent=node.getParent(); 
-//		//update node count
-//		node.deductCount(count);
-//		if(node.getCount()<=0){
-//			if(parent!=null)
-//				parent.removeChild(node);
-//			node.setParent(null);	
-//		}
-//
-//		//trace the full path that involves this node		
-//		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
-//			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());
-//			TrieNode current=parent;
-//			parent=parent.getParent();
-//			//udpate current node count
-//			current.deductCount(count);
-//			//if empty remove it from the tree
-//			if (current.getCount()<=0){
-//				if(parent!=null)
-//					parent.removeChild(current);
-//				current.setParent(null);
-//			}
-//		}
-//		return vector;
-//	}
+	//	private FeatureVector stripAndRemovePathFromNode(TrieNode node, int count){
+	//		FeatureVector vector=new FeatureVector();
+	//		vector.addOneFeatureIn(node.getObservedFeatureOccurrence().getFeatureID());
+	//		TrieNode parent=node.getParent(); 
+	//		//update node count
+	//		node.deductCount(count);
+	//		if(node.getCount()<=0){
+	//			if(parent!=null)
+	//				parent.removeChild(node);
+	//			node.setParent(null);	
+	//		}
+	//
+	//		//trace the full path that involves this node		
+	//		while(parent!=null&&parent.getObservedFeatureOccurrence()!=null){
+	//			vector.addOneFeatureIn(parent.getObservedFeatureOccurrence().getFeatureID());
+	//			TrieNode current=parent;
+	//			parent=parent.getParent();
+	//			//udpate current node count
+	//			current.deductCount(count);
+	//			//if empty remove it from the tree
+	//			if (current.getCount()<=0){
+	//				if(parent!=null)
+	//					parent.removeChild(current);
+	//				current.setParent(null);
+	//			}
+	//		}
+	//		return vector;
+	//	}
 
 	private FeatureVector stripPathFromNode(TrieNode node){
 		FeatureVector vector=new FeatureVector();
@@ -1033,45 +1030,69 @@ public class Trie {
 		}
 		return newTrie;
 	}
-	
+
 	/**
 	 * Encode the Trie into a sequence and output to destination file path
 	 * @param outputPath
 	 */
-public void getSequenceEncoding(String outputPath){
-	//traverse the trie and get the sequence encoding
-	ArrayList<TrieNode> sequence= getSequenceStartingFromNode(this.root,0);
-	//output to a file
-	try {
-		PrintWriter outFile = new PrintWriter(new FileWriter(outputPath, false));
-		for (TrieNode node: sequence){
-			ObservedFeatureOccurrence fo =node.getObservedFeatureOccurrence();
-			outFile.println(fo.getFeatureID()+":"+fo.getOccurrence()+":"+node.getCount()+":"+node.parentIndex);
+	public void getSequenceEncoding(String outputPath){
+		//traverse the trie and get the sequence encoding
+		ArrayList<TrieNode> sequence= getSequenceStartingFromNode(this.root,0);
+		//validate this sequence
+		boolean pass=true;
+		for (TrieNode node: sequence)
+		{
+			TrieNode trueparent=node.getParent();
+			if (trueparent!=null&&node.parentIndex>=0){
+				TrieNode assumedparent=sequence.get(node.parentIndex);
+				if (trueparent!=assumedparent){
+					pass=false;
+					break;
+				}
+			}
 		}
-		outFile.close();
-	} catch (IOException e) {
-		e.printStackTrace();
+		if (pass){		
+			//output to a file
+			try {
+				PrintWriter outFile = new PrintWriter(new FileWriter(outputPath, false));
+				for (TrieNode node: sequence){
+					ObservedFeatureOccurrence fo =node.getObservedFeatureOccurrence();
+					if (fo!=null)
+						outFile.println(fo.getFeatureID()+":"+fo.getOccurrence()+":"+node.getCount()+":"+node.parentIndex);
+					else
+						outFile.println("root");				
+				}
+				outFile.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}		
+		else{
+			System.out.println("Error when outputing Trie into a sequence, please check.");
+		}
 	}
-}
 
-private ArrayList<TrieNode> getSequenceStartingFromNode(TrieNode root,int rootIndex){
-	ArrayList<TrieNode> sequence=new ArrayList<TrieNode>();
-	//put the root node in
-	sequence.add(root);	
-	//concatenate child sequence one by one
-	HashMap<Integer, HashMap<Integer, TrieNode>> childrenlist=root.getChildren();
-	
-	for (Entry<Integer, HashMap<Integer, TrieNode>> en: childrenlist.entrySet()){		  
-		  for (Entry<Integer, TrieNode> enn: en.getValue().entrySet()){
-			  TrieNode child=enn.getValue();
-			  //set the child's parentIndex
-			  child.parentIndex=rootIndex;	  
-			  ArrayList<TrieNode> childSequence=getSequenceStartingFromNode(child,sequence.size());			  
-			  sequence.addAll(childSequence);
-		}	
+	private ArrayList<TrieNode> getSequenceStartingFromNode(TrieNode root, int rootIndex){
+		ArrayList<TrieNode> sequence=new ArrayList<TrieNode>();
+		//put the root node in
+		sequence.add(root);	
+		int startIndex=rootIndex+1;
+		//concatenate child sequence one by one
+		HashMap<Integer, HashMap<Integer, TrieNode>> childrenlist=root.getChildren();
+		
+		for (Entry<Integer, HashMap<Integer, TrieNode>> en: childrenlist.entrySet()){		  
+			for (Entry<Integer, TrieNode> enn: en.getValue().entrySet()){
+				TrieNode child=enn.getValue();
+				//set the child's parentIndex	
+				child.parentIndex=rootIndex;
+				ArrayList<TrieNode> childSequence=getSequenceStartingFromNode(child,startIndex);
+				sequence.addAll(childSequence);
+				//update start index
+				startIndex=startIndex+childSequence.size();
+			}	
+		}
+		return sequence;
 	}
-	return sequence;
-}
 
 }
 
